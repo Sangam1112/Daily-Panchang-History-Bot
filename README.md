@@ -4,7 +4,7 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 
 ## Features
 
-- **Hindu Almanac (Panchang)**: Retrieves daily Vara (day), Tithi, Nakshatra, Yoga, Karana, Sun timings (Sunrise & Sunset), Rahu Kalam, and Abhijit Muhurta computed for Delhi, India. Uses the free public API of [Nitya Panchangam](https://nityapanchangam.com/api/).
+- **Hindu Almanac (Panchang)**: Retrieves daily Vara (day), Tithi, Nakshatra, Yoga, Karana, Sun timings (Sunrise & Sunset), Rahu Kalam, and Abhijit Muhurta computed for Mumbai, India. Uses the free public API of [Nitya Panchangam](https://nityapanchangam.com/api/).
 - **Major Events (Indian Context)**: Fetches historical events, notable birth/death anniversaries, and festivals/holidays from Wikipedia's "On This Day" feed API, filtered dynamically using regular expressions for Indian history, personalities, and cultural terms.
 - **Global Holidays**: Lists major international days, festivals, and global observances for the day.
 - **Telegram Pushes**: Sends a clean HTML-formatted message to a specified Telegram channel, group, or direct chat using a Telegram Bot.
@@ -17,15 +17,15 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 ```html
 📅 DAILY UPDATE: July 04, 2026 (Saturday)
 
-🕉 Hindu Almanac (Panchang - New Delhi)
+🕉 Hindu Almanac (Panchang - Mumbai)
 • Vara (Day): Saturday
 • Tithi: Chaturthi (Krishna)
 • Nakshatra: Dhanishta
 • Yoga: Priti
 • Karana: Bava
-• Sun Times: Sunrise: 5:28 AM | Sunset: 7:23 PM
-• Rahu Kalam: 7:12 AM – 8:57 AM
-• Abhijit Muhurta: 12:02 PM – 12:50 PM
+• Sun Times: Sunrise: 6:05 AM | Sunset: 7:20 PM
+• Rahu Kalam: 7:45 AM – 9:24 AM
+• Abhijit Muhurta: 12:19 PM – 1:07 PM
 
 🇮🇳 Major Events in Indian History
 • [1947] The "Indian Independence Bill" is presented before the British House of Commons...
@@ -92,7 +92,7 @@ To test the script locally:
    ```bash
    export TELEGRAM_BOT_TOKEN="your_bot_token"
    export TELEGRAM_CHAT_ID="your_chat_id"
-   export CITY="mumbai" # Optional: defaults to "delhi"
+   export CITY="delhi" # Optional: defaults to "mumbai"
    ```
 4. Execute the python script:
    ```bash
