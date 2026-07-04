@@ -5,14 +5,13 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 ## Features
 
 - **Hindu Almanac (Panchang)**: Retrieves daily Vara (day), Tithi, Nakshatra, Yoga, Karana, Sun timings (Sunrise & Sunset), Rahu Kalam, and Abhijit Muhurta computed for Mumbai, India. Uses the free public API of [Nitya Panchangam](https://nityapanchangam.com/api/).
-- **Weather Forecast**: Retrieves daily weather condition, current temperature, feels-like level, minimum/maximum temperature range, humidity, and wind details using the keyless Open-Meteo API (with wttr.in fallback).
 - **Major Events (Indian Context)**: Fetches historical events, notable birth/death anniversaries, and festivals/holidays from Wikipedia's "On This Day" feed API, filtered dynamically using regular expressions for Indian history, personalities, and cultural terms.
 - **Telegram Pushes**: Sends a clean HTML-formatted message to a specified Telegram channel, group, or direct chat using a Telegram Bot.
 - **Resilient Requests**: Configured with automatic session retries and exponential backoff to handle temporary network glitches or API rate-limiting (HTTP 429, 5xx).
 - **Message Split Guard**: Automatically partitions the message at natural paragraph boundaries if the generated digest exceeds Telegram's 4,096-character API limit.
-- **Daily Infographic Card**: Generates a beautiful 800x1460 dashboard image card (`daily_card.png`) containing the Almanac, Weather, Historical Events, Births, and Holidays. Pushes it directly to Telegram with a clean header caption (removing text duplication entirely).
+- **Daily Infographic Card**: Generates a beautiful 800x1360 dashboard image card (`daily_card.png`) containing the Almanac, Historical Events, Births, and Holidays. Pushes it directly to Telegram with a clean header caption (removing text duplication entirely).
 - **GPS Coordinates Override**: Optionally reads `LAT` and `LNG` environment variables to compute calculations dynamically for any coordinate worldwide instead of just static city lists.
-- **CI/CD Verification**: Includes a unit test suite (`test_main.py`) running automatically on GitHub Actions on every push to verify filters, wind directions, and layout components.
+- **CI/CD Verification**: Includes a unit test suite (`test_main.py`) running automatically on GitHub Actions on every push to verify filters and layout components.
 - **Automated Scheduling**: Scheduled to run daily at **08:47 AM IST** (03:17 AM UTC) using GitHub Actions.
 
 ---
@@ -36,12 +35,6 @@ July 04, 2026 (Saturday)
 ⏱ DAILY MUHURTAS
 • 🟢 Abhijit Muhurta: 12:19 PM – 1:07 PM
 • 🔴 Rahu Kalam: 7:45 AM – 9:24 AM
-
-🌡️ WEATHER FORECAST (MUMBAI)
-• Condition: 🌧️ Rain, Rain Shower
-• Temperature: 26°C (Feels like 29°C)
-• Today's Range: Min 26°C | Max 28°C
-• Humidity / Wind: 94% / 38 km/h WSW
 
 ━━━━━━━━━━━━━━━━━━━━
 
