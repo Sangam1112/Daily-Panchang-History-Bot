@@ -5,6 +5,7 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 ## Features
 
 - **Hindu Almanac (Panchang)**: Retrieves daily Vara (day), Tithi, Nakshatra, Yoga, Karana, Sun timings (Sunrise & Sunset), Rahu Kalam, and Abhijit Muhurta computed for Mumbai, India. Uses the free public API of [Nitya Panchangam](https://nityapanchangam.com/api/).
+- **Weather Forecast**: Retrieves daily weather condition, current temperature, feels-like level, minimum/maximum temperature range, humidity, and wind details using the keyless `wttr.in` API.
 - **Major Events (Indian Context)**: Fetches historical events, notable birth/death anniversaries, and festivals/holidays from Wikipedia's "On This Day" feed API, filtered dynamically using regular expressions for Indian history, personalities, and cultural terms.
 - **Telegram Pushes**: Sends a clean HTML-formatted message to a specified Telegram channel, group, or direct chat using a Telegram Bot.
 - **Resilient Requests**: Configured with automatic session retries and exponential backoff to handle temporary network glitches or API rate-limiting (HTTP 429, 5xx).
@@ -32,6 +33,12 @@ July 04, 2026 (Saturday)
 ⏱ DAILY MUHURTAS
 • 🟢 Abhijit Muhurta: 12:19 PM – 1:07 PM
 • 🔴 Rahu Kalam: 7:45 AM – 9:24 AM
+
+🌡️ WEATHER FORECAST (MUMBAI)
+• Condition: 🌧️ Rain, Rain Shower
+• Temperature: 26°C (Feels like 29°C)
+• Today's Range: Min 26°C | Max 28°C
+• Humidity / Wind: 94% / 38 km/h WSW
 
 ━━━━━━━━━━━━━━━━━━━━
 
