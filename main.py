@@ -79,6 +79,33 @@ def fetch_wikipedia_events(month, day):
         logger.error(f"Error fetching Wikipedia events: {e}")
         return None
 
+def fetch_bharat_festival(now_ist):
+    """
+    Fetches today's festival from the calendar-bharat project.
+    """
+    year = now_ist.strftime("%Y")
+    month_name = now_ist.strftime("%B %Y")
+    # Date key format: "July 4, 2026, Saturday" (no leading zero on day)
+    date_key = f"{now_ist.strftime('%B')} {now_ist.day}, {now_ist.strftime('%Y, %A')}"
+    
+    url = f"https://jayantur13.github.io/calendar-bharat/calendar/{year}.json"
+    try:
+        logger.info(f"Fetching Indian festivals for year {year} from calendar-bharat...")
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Access elements safely
+        year_data = data.get(year, {})
+        month_data = year_data.get(month_name, {})
+        event_data = month_data.get(date_key)
+        if event_data:
+            logger.info(f"Found festival in calendar-bharat: {event_data.get('event')}")
+            return event_data
+    except Exception as e:
+        logger.error(f"Error fetching calendar-bharat festivals: {e}")
+    return None
+
 def format_panchang(panchang_data):
     """
     Formats Panchang data into a clean HTML block for Telegram.
@@ -115,7 +142,7 @@ def format_panchang(panchang_data):
     )
     return text
 
-def format_wikipedia_section(wiki_data):
+def format_wikipedia_section(wiki_data, bharat_event=None):
     """
     Filters and formats Wikipedia events, births, deaths, and holidays.
     """
@@ -172,6 +199,16 @@ def format_wikipedia_section(wiki_data):
     holidays = wiki_data.get('holidays', [])
     indian_holidays = []
     global_holidays = []
+    
+    # Prepend calendar-bharat festival if present
+    if bharat_event:
+        event_name = bharat_event.get('event', '')
+        event_type = bharat_event.get('type', '')
+        event_extras = bharat_event.get('extras', '')
+        extras_suffix = f" ({event_extras})" if event_extras else ""
+        type_prefix = f" [{event_type}]" if event_type else ""
+        indian_holidays.append(f"• 🌟 <b>{html.escape(event_name, quote=False)}</b>{type_prefix}{extras_suffix}")
+
     for h in holidays:
         text = h.get('text', '')
         if is_indian_context(text):
@@ -230,11 +267,12 @@ def main():
     city = os.environ.get("CITY", "delhi").lower()
     panchang_data = fetch_panchang(date_str, city=city)
     wiki_data = fetch_wikipedia_events(month_str, day_str)
+    bharat_event = fetch_bharat_festival(now_ist)
 
     # 3. Format message
     header = f"📅 <b>DAILY UPDATE: {readable_date}</b>\n\n"
     panchang_text = format_panchang(panchang_data)
-    wiki_text = format_wikipedia_section(wiki_data)
+    wiki_text = format_wikipedia_section(wiki_data, bharat_event=bharat_event)
     footer = "✨ <i>Have a wonderful day ahead!</i>"
     
     full_message = f"{header}{panchang_text}{wiki_text}{footer}"
