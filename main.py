@@ -309,15 +309,90 @@ def get_font(font_path, size):
         except Exception:
             return ImageFont.load_default()
 
-def generate_infographic_card(city, date_str, panchang_data, weather_data):
+def get_text_width(text, font):
+    if hasattr(font, "getlength"):
+        return font.getlength(text)
+    elif hasattr(font, "getsize"):
+        return font.getsize(text)[0]
+    else:
+        return len(text) * 6
+
+def wrap_text(text, font, max_width):
+    words = text.split(' ')
+    lines = []
+    current_line = []
+    for word in words:
+        test_line = ' '.join(current_line + [word])
+        if get_text_width(test_line, font) <= max_width:
+            current_line.append(word)
+        else:
+            if current_line:
+                lines.append(' '.join(current_line))
+            current_line = [word]
+    if current_line:
+        lines.append(' '.join(current_line))
+    return lines
+
+def get_filtered_events(wiki_data):
+    events = wiki_data.get('events', []) + wiki_data.get('selected', [])
+    indian_events = []
+    seen = set()
+    for e in events:
+        text = e.get('text', '')
+        if text not in seen and is_indian_context(text):
+            seen.add(text)
+            indian_events.append({"year": e.get('year', ''), "text": text})
+    return indian_events[:5]
+
+def get_filtered_births(wiki_data):
+    births = wiki_data.get('births', [])
+    indian_births = []
+    for b in births:
+        text = b.get('text', '')
+        if is_indian_context(text):
+            indian_births.append({"year": b.get('year', ''), "text": text})
+    return indian_births[:4]
+
+def get_filtered_deaths(wiki_data):
+    deaths = wiki_data.get('deaths', [])
+    indian_deaths = []
+    for d in deaths:
+        text = d.get('text', '')
+        if is_indian_context(text):
+            indian_deaths.append({"year": d.get('year', ''), "text": text})
+    return indian_deaths[:4]
+
+def get_filtered_holidays(wiki_data, bharat_event=None):
+    holidays = wiki_data.get('holidays', [])
+    indian_holidays = []
+    if bharat_event:
+        name = bharat_event.get('event', '')
+        etype = bharat_event.get('type', '')
+        extras = bharat_event.get('extras', '')
+        suffix = f" ({extras})" if extras else ""
+        tprefix = f" [{etype}]" if etype else ""
+        indian_holidays.append(f"🌟 {name}{tprefix}{suffix}")
+    for h in holidays:
+        text = h.get('text', '')
+        if is_indian_context(text):
+            indian_holidays.append(text)
+    return indian_holidays[:4]
+
+def generate_infographic_card(city, date_str, panchang_data, weather_data, wiki_data, bharat_event=None):
     """
-    Generates a beautiful daily infographic image card.
+    Generates a beautiful daily infographic image card containing all sections.
     """
-    # Create a dark-themed canvas (800 x 480)
-    width, height = 800, 480
-    bg_color = (26, 32, 44)  # #1A202C Slate Dark
+    # Create a dark-themed canvas (800 x 1460)
+    width, height = 800, 1460
+    bg_color = (15, 23, 42)  # #0F172A Slate-900
     img = Image.new("RGB", (width, height), bg_color)
     draw = ImageDraw.Draw(img)
+    
+    # Colors
+    card_bg = (30, 41, 59) # #1E293B Slate-800
+    border_color = (74, 85, 104) # #4A5568
+    text_primary = (241, 245, 249) # #F1F5F9 Slate-50
+    text_secondary = (148, 163, 184) # #94A3B8 Slate-400
     
     # Fonts
     bold_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -328,56 +403,55 @@ def generate_infographic_card(city, date_str, panchang_data, weather_data):
     section_title_font = get_font(bold_path, 18)
     content_font = get_font(reg_path, 15)
     content_bold_font = get_font(bold_path, 15)
+    footer_font = get_font(reg_path, 16)
     
-    # Draw Borders and Decorative Dividers
-    draw.rectangle([15, 15, width-15, height-15], outline=(74, 85, 104), width=2) # #4A5568 Border
-    draw.line([30, 90, width-30, 90], fill=(74, 85, 104), width=1)
-    draw.line([width//2, 110, width//2, height-30], fill=(74, 85, 104), width=1) # Center Divider
+    # Draw Outer Border
+    draw.rectangle([15, 15, width-15, height-15], outline=border_color, width=2)
     
-    # Draw Header
-    draw.text((40, 30), "DAILY SPECIAL UPDATE", font=title_font, fill=(203, 213, 224)) # #CBD5E0
-    draw.text((40, 65), f"{city.upper()} • {date_str}", font=sub_font, fill=(160, 174, 192)) # #A0AEC0
+    # Draw Header Section
+    draw.text((40, 35), "DAILY SPECIAL UPDATE", font=title_font, fill=text_primary)
+    draw.text((40, 70), f"{city.upper()}  •  {date_str}", font=sub_font, fill=text_secondary)
+    draw.line([30, 100, width-30, 100], fill=border_color, width=1)
     
-    # Draw Left Column - HINDU ALMANAC (PANCHANG)
-    draw.text((40, 110), "🕉 HINDU ALMANAC", font=section_title_font, fill=(246, 173, 85)) # Orange #F6AD55
+    # Card 1: HINDU ALMANAC (x: 30 to 385, y: 120 to 420)
+    draw.rounded_rectangle([30, 120, 385, 420], radius=10, fill=card_bg)
+    draw.text((50, 140), "🕉 HINDU ALMANAC", font=section_title_font, fill=(245, 158, 11)) # Amber-500
     
-    panchang_y = 150
+    p_y = 180
     if panchang_data:
         vara = panchang_data.get('vara', {}).get('name', 'N/A')
         tithi = panchang_data.get('tithi', {}).get('name', 'N/A')
         nakshatra = panchang_data.get('nakshatra', {}).get('name', 'N/A')
         yoga = panchang_data.get('yoga', {}).get('name', 'N/A')
         karana = panchang_data.get('karana', {}).get('name', 'N/A')
-        
         sun = panchang_data.get('sun', {})
         sunrise = sun.get('sunrise', 'N/A')
         sunset = sun.get('sunset', 'N/A')
-        
         muhurta = panchang_data.get('muhurta', {})
         rahu = muhurta.get('rahu_kalam', 'N/A')
         abhijit = muhurta.get('abhijit_muhurtam', 'N/A')
         
-        items = [
+        p_items = [
             ("Vara (Day)", vara),
             ("Tithi", tithi),
             ("Nakshatra", nakshatra),
             ("Yoga / Karana", f"{yoga} / {karana}"),
             ("Sunrise / Sunset", f"{sunrise} / {sunset}"),
-            ("Abhijit Muhurta", abhijit),
+            ("Abhijit Muh.", abhijit),
             ("Rahu Kalam", rahu)
         ]
-        
-        for label, val in items:
-            draw.text((40, panchang_y), f"{label}:", font=content_bold_font, fill=(160, 174, 192))
-            draw.text((180, panchang_y), str(val), font=content_font, fill=(226, 232, 240))
-            panchang_y += 35
+        for label, val in p_items:
+            draw.text((50, p_y), f"{label}:", font=content_bold_font, fill=text_secondary)
+            draw.text((180, p_y), str(val), font=content_font, fill=text_primary)
+            p_y += 32
     else:
-        draw.text((40, panchang_y), "Panchang details not available.", font=content_font, fill=(226, 232, 240))
-        
-    # Draw Right Column - WEATHER FORECAST
-    draw.text((width//2 + 30, 110), "🌡️ WEATHER FORECAST", font=section_title_font, fill=(99, 179, 237)) # Blue #63B3ED
+        draw.text((50, p_y), "Data not available", font=content_font, fill=text_secondary)
+
+    # Card 2: WEATHER FORECAST (x: 415 to 770, y: 120 to 420)
+    draw.rounded_rectangle([415, 120, 770, 420], radius=10, fill=card_bg)
+    draw.text((435, 140), "🌡️ WEATHER FORECAST", font=section_title_font, fill=(59, 130, 246)) # Blue-500
     
-    weather_y = 150
+    w_y = 180
     if weather_data and not weather_data.get("failed"):
         temp = weather_data.get("temp", "N/A")
         feels = weather_data.get("feels", "N/A")
@@ -395,14 +469,118 @@ def generate_infographic_card(city, date_str, panchang_data, weather_data):
             ("Humidity", f"{humidity}%"),
             ("Wind Speed", wind)
         ]
-        
         for label, val in w_items:
-            draw.text((width//2 + 30, weather_y), f"{label}:", font=content_bold_font, fill=(160, 174, 192))
-            draw.text((width//2 + 170, weather_y), str(val), font=content_font, fill=(226, 232, 240))
-            weather_y += 35
+            draw.text((435, w_y), f"{label}:", font=content_bold_font, fill=text_secondary)
+            if label == "Condition":
+                desc_lines = wrap_text(str(val), content_font, 170)
+                draw.text((565, w_y), desc_lines[0], font=content_font, fill=text_primary)
+                if len(desc_lines) > 1:
+                    w_y += 18
+                    draw.text((565, w_y), desc_lines[1], font=content_font, fill=text_primary)
+            else:
+                draw.text((565, w_y), str(val), font=content_font, fill=text_primary)
+            w_y += 32
     else:
-        draw.text((width//2 + 30, weather_y), "Weather details not available.", font=content_font, fill=(226, 232, 240))
+        draw.text((435, w_y), "Data not available", font=content_font, fill=text_secondary)
+
+    # Card 3: HISTORICAL EVENTS (x: 30 to 770, y: 440 to 860)
+    draw.rounded_rectangle([30, 440, 770, 860], radius=10, fill=card_bg)
+    draw.text((50, 460), "🏛 HISTORICAL EVENTS", font=section_title_font, fill=(20, 184, 166)) # Teal-500
+    
+    ev_y = 500
+    events_list = get_filtered_events(wiki_data) if wiki_data else []
+    if events_list:
+        for ev in events_list:
+            year = ev['year']
+            text = ev['text']
+            prefix = f"• [{year}]  " if year else "• "
+            
+            draw.text((50, ev_y), prefix, font=content_bold_font, fill=(99, 102, 241)) # Indigo-500
+            prefix_width = get_text_width(prefix, content_bold_font)
+            
+            wrapped_lines = wrap_text(text, content_font, width - 100 - prefix_width)
+            for j, line in enumerate(wrapped_lines):
+                draw.text((50 + prefix_width, ev_y), line, font=content_font, fill=text_primary)
+                if j < len(wrapped_lines) - 1:
+                    ev_y += 20
+            ev_y += 26
+    else:
+        draw.text((50, ev_y), "No major historical events recorded on this day.", font=content_font, fill=text_secondary)
+
+    # Card 4: BIRTH ANNIVERSARIES (x: 30 to 385, y: 880 to 1190)
+    draw.rounded_rectangle([30, 880, 385, 1190], radius=10, fill=card_bg)
+    draw.text((50, 900), "🎂 BIRTH ANNIVERSARIES", font=section_title_font, fill=(236, 72, 153)) # Pink-500
+    
+    b_y = 940
+    births_list = get_filtered_births(wiki_data) if wiki_data else []
+    if births_list:
+        for b in births_list:
+            year = b['year']
+            text = b['text']
+            prefix = f"• [{year}] " if year else "• "
+            
+            draw.text((50, b_y), prefix, font=content_bold_font, fill=text_secondary)
+            pref_w = get_text_width(prefix, content_bold_font)
+            
+            wrapped = wrap_text(text, content_font, 335 - pref_w)
+            for j, line in enumerate(wrapped):
+                draw.text((50 + pref_w, b_y), line, font=content_font, fill=text_primary)
+                if j < len(wrapped) - 1:
+                    b_y += 18
+            b_y += 26
+    else:
+        draw.text((50, b_y), "None recorded.", font=content_font, fill=text_secondary)
+
+    # Card 5: REMEMBRANCE DAYS (x: 415 to 770, y: 880 to 1190)
+    draw.rounded_rectangle([415, 880, 770, 1190], radius=10, fill=card_bg)
+    draw.text((435, 900), "🕯 REMEMBRANCE DAYS", font=section_title_font, fill=(168, 85, 247)) # Purple-500
+    
+    d_y = 940
+    deaths_list = get_filtered_deaths(wiki_data) if wiki_data else []
+    if deaths_list:
+        for d in deaths_list:
+            year = d['year']
+            text = d['text']
+            prefix = f"• [{year}] " if year else "• "
+            
+            draw.text((435, d_y), prefix, font=content_bold_font, fill=text_secondary)
+            pref_w = get_text_width(prefix, content_bold_font)
+            
+            wrapped = wrap_text(text, content_font, 335 - pref_w)
+            for j, line in enumerate(wrapped):
+                draw.text((435 + pref_w, d_y), line, font=content_font, fill=text_primary)
+                if j < len(wrapped) - 1:
+                    d_y += 18
+            d_y += 26
+    else:
+        draw.text((435, d_y), "None recorded.", font=content_font, fill=text_secondary)
+
+    # Card 6: FESTIVALS & HOLIDAYS (x: 30 to 770, y: 1210 to 1400)
+    draw.rounded_rectangle([30, 1210, 770, 1400], radius=10, fill=card_bg)
+    draw.text((50, 1230), "🎉 FESTIVALS & HOLIDAYS", font=section_title_font, fill=(16, 185, 129)) # Green-500
+    
+    h_y = 1270
+    holidays_list = get_filtered_holidays(wiki_data, bharat_event=bharat_event) if wiki_data or bharat_event else []
+    if holidays_list:
+        for h in holidays_list:
+            prefix = "• "
+            draw.text((50, h_y), prefix, font=content_bold_font, fill=text_secondary)
+            pref_w = get_text_width(prefix, content_bold_font)
+            
+            wrapped = wrap_text(h, content_font, width - 100 - pref_w)
+            for j, line in enumerate(wrapped):
+                draw.text((50 + pref_w, h_y), line, font=content_font, fill=text_primary)
+                if j < len(wrapped) - 1:
+                    h_y += 18
+            h_y += 24
+    else:
+        draw.text((50, h_y), "No major festivals or holidays scheduled today.", font=content_font, fill=text_secondary)
         
+    # Footer Section
+    footer_text = "✨ Have a blessed and wonderful day ahead! ✨"
+    f_w = get_text_width(footer_text, footer_font)
+    draw.text(((width - f_w) // 2, 1420), footer_text, font=footer_font, fill=(245, 158, 11)) # Amber-500
+    
     # Save image
     out_path = "daily_card.png"
     try:
@@ -684,9 +862,9 @@ def main():
 
     # 4. Generate Infographic Card
     display_location = f"({lat}, {lng})" if (lat is not None and lng is not None) else city
-    photo_path = generate_infographic_card(display_location, readable_date, panchang_data, weather_dict)
+    photo_path = generate_infographic_card(display_location, readable_date, panchang_data, weather_dict, wiki_data, bharat_event)
 
-    # 5. Format message
+    # 5. Format message (Backup text version printed to local stdout log)
     display_location_upper = display_location.upper()
     header = (
         f"🗓 <b>DAILY UPDATE • {display_location_upper}</b>\n"
@@ -709,17 +887,22 @@ def main():
     telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     
-    # Print message to stdout for log visibility
-    print("\n--- FORMATTED TELEGRAM MESSAGE ---")
+    # Print message to stdout for local execution visibility
+    print("\n--- FORMATTED TELEGRAM MESSAGE (BACKUP TEXT) ---")
     print(full_message)
-    print("----------------------------------\n")
+    print("------------------------------------------------\n")
     
     if telegram_token and telegram_chat_id:
-        photo_caption = f"🗓 <b>DAILY UPDATE • {display_location_upper}</b>\n<i>{readable_date}</i>"
+        photo_caption = (
+            f"🗓 <b>DAILY UPDATE • {display_location_upper}</b>\n"
+            f"<i>{readable_date}</i>\n\n"
+            f"✨ <i>Have a blessed and wonderful day ahead!</i>"
+        )
+        # Send ONLY the graphical card image to Telegram to prevent duplication
         success = send_telegram_message(
             telegram_token, 
             telegram_chat_id, 
-            full_message, 
+            message_text="", 
             photo_path=photo_path, 
             caption=photo_caption
         )
@@ -728,7 +911,7 @@ def main():
     else:
         logger.warning(
             "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID environment variables are not set. "
-            "Skipping Telegram delivery. Message printed to stdout."
+            "Skipping Telegram delivery. Backup text printed to stdout."
         )
 
 if __name__ == "__main__":
