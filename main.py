@@ -10,6 +10,8 @@ try:
 except ImportError:
     # Fallback for Python < 3.9 (though GitHub Actions runners use Python 3.10+)
     from backports.zoneinfo import ZoneInfo
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +20,27 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
+
+def get_session():
+    """
+    Creates a requests Session with HTTP retry adapter.
+    Retries up to 3 times for temporary network errors/rate-limiting, 
+    with exponential backoff.
+    """
+    session = requests.Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=1.0,
+        status_forcelist=[500, 502, 503, 504, 429],
+        raise_on_status=False
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+# Global session with retries enabled
+http_session = get_session()
 
 # List of India-related keywords (compiled from geography, history, languages, notable names, etc.)
 INDIAN_KEYWORDS = [
@@ -83,7 +106,7 @@ def fetch_panchang(date_str, city="mumbai"):
     }
     try:
         logger.info(f"Fetching Panchang for {date_str} in {city}...")
-        response = requests.get(url, params=params, headers=headers, timeout=15)
+        response = http_session.get(url, params=params, headers=headers, timeout=15)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -100,7 +123,7 @@ def fetch_wikipedia_events(month, day):
     }
     try:
         logger.info(f"Fetching Wikipedia events for {month}/{day}...")
-        response = requests.get(url, headers=headers, timeout=15)
+        response = http_session.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -119,7 +142,7 @@ def fetch_bharat_festival(now_ist):
     url = f"https://jayantur13.github.io/calendar-bharat/calendar/{year}.json"
     try:
         logger.info(f"Fetching Indian festivals for year {year} from calendar-bharat...")
-        response = requests.get(url, timeout=15)
+        response = http_session.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
         
@@ -249,28 +272,59 @@ def format_wikipedia_section(wiki_data, bharat_event=None):
 
 def send_telegram_message(token, chat_id, message_text):
     """
-    Sends the formatted message to Telegram.
+    Sends the formatted message to Telegram. Handles message splitting 
+    at paragraph boundaries if the content exceeds Telegram's 4096-character limit.
     """
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message_text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True
-    }
-    try:
-        logger.info("Sending message to Telegram...")
-        response = requests.post(url, json=payload, timeout=15)
-        response_json = response.json()
-        if response.status_code == 200 and response_json.get("ok"):
-            logger.info("Message sent successfully!")
-            return True
+    # Split text into paragraphs/sections at natural double newline boundaries
+    paragraphs = message_text.split("\n\n")
+    chunks = []
+    current_chunk = []
+    current_len = 0
+    
+    for para in paragraphs:
+        # If adding this paragraph exceeds 4000 characters, ship the current chunk
+        if current_len + len(para) + 2 > 4000:
+            if current_chunk:
+                chunks.append("\n\n".join(current_chunk))
+            current_chunk = [para]
+            current_len = len(para)
         else:
-            logger.error(f"Failed to send Telegram message: {response_json}")
-            return False
-    except Exception as e:
-        logger.error(f"Error sending Telegram message: {e}")
-        return False
+            current_chunk.append(para)
+            current_len += len(para) + 2
+            
+    if current_chunk:
+        chunks.append("\n\n".join(current_chunk))
+        
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    success = True
+    
+    # Send each chunk as a separate message
+    for i, chunk in enumerate(chunks, 1):
+        # Clean trailing/leading spaces
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+            
+        payload = {
+            "chat_id": chat_id,
+            "text": chunk,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True
+        }
+        try:
+            logger.info(f"Sending message chunk {i}/{len(chunks)} to Telegram (length {len(chunk)})...")
+            response = http_session.post(url, json=payload, timeout=15)
+            response_json = response.json()
+            if response.status_code == 200 and response_json.get("ok"):
+                logger.info(f"Chunk {i} sent successfully!")
+            else:
+                logger.error(f"Failed to send Telegram chunk {i}: {response_json}")
+                success = False
+        except Exception as e:
+            logger.error(f"Error sending Telegram chunk {i}: {e}")
+            success = False
+            
+    return success
 
 def main():
     # 1. Get current date in IST
