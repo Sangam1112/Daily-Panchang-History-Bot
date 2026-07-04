@@ -12,6 +12,7 @@ except ImportError:
     from backports.zoneinfo import ZoneInfo
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+from PIL import Image, ImageDraw, ImageFont
 
 # Configure logging
 logging.basicConfig(
@@ -95,17 +96,25 @@ def is_indian_context(text):
             return False
     return True
 
-def fetch_panchang(date_str, city="mumbai"):
+def fetch_panchang(date_str, city="mumbai", lat=None, lng=None):
     """
-    Fetches Hindu Almanac (Panchang) details for the specified date and city.
+    Fetches Hindu Almanac (Panchang) details for the specified date and city or coordinates.
     """
     url = "https://nityapanchangam.com/api/panchangam.php"
-    params = {"date": date_str, "city": city}
+    params = {"date": date_str}
+    if lat and lng:
+        params["lat"] = lat
+        params["lng"] = lng
+        location_log = f"coordinates: {lat}, {lng}"
+    else:
+        params["city"] = city
+        location_log = f"city: {city}"
+        
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
-        logger.info(f"Fetching Panchang for {date_str} in {city}...")
+        logger.info(f"Fetching Panchang for {date_str} in {location_log}...")
         response = http_session.get(url, params=params, headers=headers, timeout=15)
         response.raise_for_status()
         return response.json()
@@ -172,24 +181,25 @@ def get_wind_dir(deg):
     idx = int((deg + 11.25) / 22.5) % 16
     return directions[idx]
 
-def fetch_weather(city="mumbai"):
+def fetch_weather(city="mumbai", lat=None, lng=None):
     """
-    Fetches daily weather forecast and current condition for the specified city.
+    Fetches daily weather forecast and current condition for the specified city or coordinates.
     Uses Open-Meteo as the primary reliable API, falling back to wttr.in.
     """
     city_key = city.lower().strip()
+    use_coords = lat is not None and lng is not None
     
-    # 1. Try Open-Meteo first if coordinates exist
-    if city_key in CITY_COORDINATES:
-        lat, lng = CITY_COORDINATES[city_key]
+    # 1. Try Open-Meteo first if coordinates are explicitly provided or match a city
+    if use_coords or city_key in CITY_COORDINATES:
+        c_lat, c_lng = (lat, lng) if use_coords else CITY_COORDINATES[city_key]
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={lat}&longitude={lng}"
+            f"latitude={c_lat}&longitude={c_lng}"
             f"&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m"
             f"&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
         )
         try:
-            logger.info(f"Fetching Weather from Open-Meteo for coordinates: {lat}, {lng} ({city_key})...")
+            logger.info(f"Fetching Weather from Open-Meteo for coordinates: {c_lat}, {c_lng} (use_coords={use_coords})...")
             response = http_session.get(url, timeout=15)
             response.raise_for_status()
             data = response.json()
@@ -210,24 +220,35 @@ def fetch_weather(city="mumbai"):
             
             emoji, desc = WMO_CODES.get(weather_code, ("☀️", "Clear sky"))
             
+            display_name = f"({c_lat}, {c_lng})" if use_coords else city.upper()
             weather_text = (
-                f"🌡️ <b>WEATHER FORECAST ({city.upper()})</b>\n"
+                f"🌡️ <b>WEATHER FORECAST ({display_name})</b>\n"
                 f"• <b>Condition:</b> {emoji} <code>{html.escape(desc, quote=False)}</code>\n"
                 f"• <b>Temperature:</b> <code>{temp}°C</code> (Feels like <code>{feels}°C</code>)\n"
                 f"• <b>Today's Range:</b> Min <code>{min_temp}°C</code> | Max <code>{max_temp}°C</code>\n"
                 f"• <b>Humidity / Wind:</b> <code>{humidity}%</code> / <code>{wind_speed} km/h {wind_dir}</code>\n\n"
             )
-            return weather_text
+            weather_dict = {
+                "temp": temp,
+                "feels": feels,
+                "desc": desc,
+                "min_temp": min_temp,
+                "max_temp": max_temp,
+                "humidity": humidity,
+                "wind": f"{wind_speed} km/h {wind_dir}"
+            }
+            return weather_text, weather_dict
         except Exception as e:
             logger.warning(f"Failed to fetch from Open-Meteo: {e}. Falling back to wttr.in...")
 
     # 2. Fallback to wttr.in
-    url = f"https://wttr.in/{city}?format=j1"
+    wttr_target = f"{lat},{lng}" if use_coords else city
+    url = f"https://wttr.in/{wttr_target}?format=j1"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
-        logger.info(f"Fetching Weather from wttr.in fallback for {city}...")
+        logger.info(f"Fetching Weather from wttr.in fallback for {wttr_target}...")
         response = http_session.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json()
@@ -258,18 +279,139 @@ def fetch_weather(city="mumbai"):
         elif "mist" in desc_lower or "fog" in desc_lower or "haze" in desc_lower:
             emoji = "🌫️"
             
+        display_name = f"({lat}, {lng})" if use_coords else city.upper()
         weather_text = (
-            f"🌡️ <b>WEATHER FORECAST ({city.upper()})</b>\n"
+            f"🌡️ <b>WEATHER FORECAST ({display_name})</b>\n"
             f"• <b>Condition:</b> {emoji} <code>{html.escape(desc, quote=False)}</code>\n"
             f"• <b>Temperature:</b> <code>{temp}°C</code> (Feels like <code>{feels}°C</code>)\n"
             f"• <b>Today's Range:</b> Min <code>{min_temp}°C</code> | Max <code>{max_temp}°C</code>\n"
             f"• <b>Humidity / Wind:</b> <code>{humidity}%</code> / <code>{wind_speed} km/h {wind_dir}</code>\n\n"
         )
-        return weather_text
+        weather_dict = {
+            "temp": temp,
+            "feels": feels,
+            "desc": desc,
+            "min_temp": min_temp,
+            "max_temp": max_temp,
+            "humidity": humidity,
+            "wind": f"{wind_speed} km/h {wind_dir}"
+        }
+        return weather_text, weather_dict
     except Exception as e:
         logger.error(f"Error fetching weather from both APIs: {e}")
-        return "⚠️ <i>Weather forecast could not be retrieved today.</i>\n\n"
+        return "⚠️ <i>Weather forecast could not be retrieved today.</i>\n\n", {"failed": True}
+def get_font(font_path, size):
+    try:
+        return ImageFont.truetype(font_path, size)
+    except Exception:
+        try:
+            return ImageFont.load_default(size=size)  # Pillow 10+
+        except Exception:
+            return ImageFont.load_default()
 
+def generate_infographic_card(city, date_str, panchang_data, weather_data):
+    """
+    Generates a beautiful daily infographic image card.
+    """
+    # Create a dark-themed canvas (800 x 480)
+    width, height = 800, 480
+    bg_color = (26, 32, 44)  # #1A202C Slate Dark
+    img = Image.new("RGB", (width, height), bg_color)
+    draw = ImageDraw.Draw(img)
+    
+    # Fonts
+    bold_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    reg_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    
+    title_font = get_font(bold_path, 28)
+    sub_font = get_font(reg_path, 18)
+    section_title_font = get_font(bold_path, 18)
+    content_font = get_font(reg_path, 15)
+    content_bold_font = get_font(bold_path, 15)
+    
+    # Draw Borders and Decorative Dividers
+    draw.rectangle([15, 15, width-15, height-15], outline=(74, 85, 104), width=2) # #4A5568 Border
+    draw.line([30, 90, width-30, 90], fill=(74, 85, 104), width=1)
+    draw.line([width//2, 110, width//2, height-30], fill=(74, 85, 104), width=1) # Center Divider
+    
+    # Draw Header
+    draw.text((40, 30), "DAILY SPECIAL UPDATE", font=title_font, fill=(203, 213, 224)) # #CBD5E0
+    draw.text((40, 65), f"{city.upper()} • {date_str}", font=sub_font, fill=(160, 174, 192)) # #A0AEC0
+    
+    # Draw Left Column - HINDU ALMANAC (PANCHANG)
+    draw.text((40, 110), "🕉 HINDU ALMANAC", font=section_title_font, fill=(246, 173, 85)) # Orange #F6AD55
+    
+    panchang_y = 150
+    if panchang_data:
+        vara = panchang_data.get('vara', {}).get('name', 'N/A')
+        tithi = panchang_data.get('tithi', {}).get('name', 'N/A')
+        nakshatra = panchang_data.get('nakshatra', {}).get('name', 'N/A')
+        yoga = panchang_data.get('yoga', {}).get('name', 'N/A')
+        karana = panchang_data.get('karana', {}).get('name', 'N/A')
+        
+        sun = panchang_data.get('sun', {})
+        sunrise = sun.get('sunrise', 'N/A')
+        sunset = sun.get('sunset', 'N/A')
+        
+        muhurta = panchang_data.get('muhurta', {})
+        rahu = muhurta.get('rahu_kalam', 'N/A')
+        abhijit = muhurta.get('abhijit_muhurtam', 'N/A')
+        
+        items = [
+            ("Vara (Day)", vara),
+            ("Tithi", tithi),
+            ("Nakshatra", nakshatra),
+            ("Yoga / Karana", f"{yoga} / {karana}"),
+            ("Sunrise / Sunset", f"{sunrise} / {sunset}"),
+            ("Abhijit Muhurta", abhijit),
+            ("Rahu Kalam", rahu)
+        ]
+        
+        for label, val in items:
+            draw.text((40, panchang_y), f"{label}:", font=content_bold_font, fill=(160, 174, 192))
+            draw.text((180, panchang_y), str(val), font=content_font, fill=(226, 232, 240))
+            panchang_y += 35
+    else:
+        draw.text((40, panchang_y), "Panchang details not available.", font=content_font, fill=(226, 232, 240))
+        
+    # Draw Right Column - WEATHER FORECAST
+    draw.text((width//2 + 30, 110), "🌡️ WEATHER FORECAST", font=section_title_font, fill=(99, 179, 237)) # Blue #63B3ED
+    
+    weather_y = 150
+    if weather_data and not weather_data.get("failed"):
+        temp = weather_data.get("temp", "N/A")
+        feels = weather_data.get("feels", "N/A")
+        desc = weather_data.get("desc", "N/A")
+        min_t = weather_data.get("min_temp", "N/A")
+        max_t = weather_data.get("max_temp", "N/A")
+        humidity = weather_data.get("humidity", "N/A")
+        wind = weather_data.get("wind", "N/A")
+        
+        w_items = [
+            ("Condition", desc),
+            ("Temperature", f"{temp}°C"),
+            ("Feels Like", f"{feels}°C"),
+            ("Today's Range", f"Min {min_t}°C | Max {max_t}°C"),
+            ("Humidity", f"{humidity}%"),
+            ("Wind Speed", wind)
+        ]
+        
+        for label, val in w_items:
+            draw.text((width//2 + 30, weather_y), f"{label}:", font=content_bold_font, fill=(160, 174, 192))
+            draw.text((width//2 + 170, weather_y), str(val), font=content_font, fill=(226, 232, 240))
+            weather_y += 35
+    else:
+        draw.text((width//2 + 30, weather_y), "Weather details not available.", font=content_font, fill=(226, 232, 240))
+        
+    # Save image
+    out_path = "daily_card.png"
+    try:
+        img.save(out_path)
+        logger.info(f"Daily infographic card generated successfully at {out_path}")
+        return out_path
+    except Exception as e:
+        logger.error(f"Failed to save infographic card image: {e}")
+        return None
 def fetch_wikipedia_events(month, day):
     """
     Fetches all historical events, births, deaths, and holidays from Wikipedia for a given month and day.
@@ -428,12 +570,38 @@ def format_wikipedia_section(wiki_data, bharat_event=None):
 
     return sections_text
 
-def send_telegram_message(token, chat_id, message_text):
+def send_telegram_message(token, chat_id, message_text, photo_path=None, caption=None):
     """
     Sends the formatted message to Telegram. Handles message splitting 
     at paragraph boundaries if the content exceeds Telegram's 4096-character limit.
+    If photo_path is provided, it first sends the photo using sendPhoto.
     """
-    # Split text into paragraphs/sections at natural double newline boundaries
+    success = True
+
+    # 1. Send the photo card first if provided
+    if photo_path and os.path.exists(photo_path):
+        photo_url = f"https://api.telegram.org/bot{token}/sendPhoto"
+        try:
+            logger.info(f"Sending infographic card {photo_path} to Telegram...")
+            with open(photo_path, "rb") as f:
+                files = {"photo": f}
+                payload = {
+                    "chat_id": chat_id,
+                    "caption": caption or "🗓 <b>DAILY UPDATE</b>",
+                    "parse_mode": "HTML"
+                }
+                response = http_session.post(photo_url, data=payload, files=files, timeout=25)
+                response_json = response.json()
+                if response.status_code == 200 and response_json.get("ok"):
+                    logger.info("Infographic card sent successfully!")
+                else:
+                    logger.error(f"Failed to send Telegram photo: {response_json}")
+                    success = False
+        except Exception as e:
+            logger.error(f"Error sending Telegram photo: {e}")
+            success = False
+
+    # 2. Split text into paragraphs/sections at natural double newline boundaries
     paragraphs = message_text.split("\n\n")
     chunks = []
     current_chunk = []
@@ -454,7 +622,6 @@ def send_telegram_message(token, chat_id, message_text):
         chunks.append("\n\n".join(current_chunk))
         
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    success = True
     
     # Send each chunk as a separate message
     for i, chunk in enumerate(chunks, 1):
@@ -496,17 +663,33 @@ def main():
 
     logger.info(f"Running daily update for date (IST): {readable_date}")
 
-    # 2. Fetch data
+    # 2. Parse GPS coordinates if set in environment
+    lat_env = os.environ.get("LAT")
+    lng_env = os.environ.get("LNG")
+    lat, lng = None, None
+    if lat_env and lng_env:
+        try:
+            lat = float(lat_env)
+            lng = float(lng_env)
+            logger.info(f"Using custom GPS Coordinates: {lat}, {lng}")
+        except ValueError as e:
+            logger.error(f"Error parsing LAT/LNG environment variables: {e}")
+
+    # 3. Fetch data
     city = os.environ.get("CITY", "mumbai").lower()
-    panchang_data = fetch_panchang(date_str, city=city)
+    panchang_data = fetch_panchang(date_str, city=city, lat=lat, lng=lng)
     wiki_data = fetch_wikipedia_events(month_str, day_str)
     bharat_event = fetch_bharat_festival(now_ist)
-    weather_text = fetch_weather(city)
+    weather_text, weather_dict = fetch_weather(city, lat=lat, lng=lng)
 
-    # 3. Format message
-    city_upper = city.upper()
+    # 4. Generate Infographic Card
+    display_location = f"({lat}, {lng})" if (lat is not None and lng is not None) else city
+    photo_path = generate_infographic_card(display_location, readable_date, panchang_data, weather_dict)
+
+    # 5. Format message
+    display_location_upper = display_location.upper()
     header = (
-        f"🗓 <b>DAILY UPDATE • {city_upper}</b>\n"
+        f"🗓 <b>DAILY UPDATE • {display_location_upper}</b>\n"
         f"<i>{readable_date}</i>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
     )
@@ -522,7 +705,7 @@ def main():
     
     full_message = f"{header}{panchang_text}{weather_text}{divider}{wiki_text}{footer}"
     
-    # 4. Handle Telegram delivery
+    # 6. Handle Telegram delivery
     telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     
@@ -532,7 +715,14 @@ def main():
     print("----------------------------------\n")
     
     if telegram_token and telegram_chat_id:
-        success = send_telegram_message(telegram_token, telegram_chat_id, full_message)
+        photo_caption = f"🗓 <b>DAILY UPDATE • {display_location_upper}</b>\n<i>{readable_date}</i>"
+        success = send_telegram_message(
+            telegram_token, 
+            telegram_chat_id, 
+            full_message, 
+            photo_path=photo_path, 
+            caption=photo_caption
+        )
         if not success:
             sys.exit(1)
     else:
