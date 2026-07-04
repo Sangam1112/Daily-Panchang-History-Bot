@@ -122,184 +122,7 @@ def fetch_panchang(date_str, city="mumbai", lat=None, lng=None):
         logger.error(f"Error fetching Panchang: {e}")
         return None
 
-# City Coordinates mapping for reliable Open-Meteo calculations
-CITY_COORDINATES = {
-    "mumbai": (19.0760, 72.8777),
-    "delhi": (28.6139, 77.2090),
-    "new delhi": (28.6139, 77.2090),
-    "bangalore": (12.9716, 77.5946),
-    "bengaluru": (12.9716, 77.5946),
-    "chennai": (13.0827, 80.2707),
-    "kolkata": (22.5726, 88.3639),
-    "hyderabad": (17.3850, 78.4867),
-    "pune": (18.5204, 73.8567),
-    "ahmedabad": (23.0225, 72.5714),
-    "jaipur": (26.9124, 75.7873),
-    "newyork": (40.7128, -74.0060),
-    "london": (51.5074, -0.1278),
-    "singapore": (1.3521, 103.8198),
-    "dubai": (25.2048, 55.2708)
-}
 
-# WMO weather code mappings
-WMO_CODES = {
-    0: ("☀️", "Clear sky"),
-    1: ("🌤️", "Mainly clear"),
-    2: ("⛅", "Partly cloudy"),
-    3: ("☁️", "Overcast"),
-    45: ("🌫️", "Fog"),
-    48: ("🌫️", "Depositing rime fog"),
-    51: ("🌧️", "Light drizzle"),
-    53: ("🌧️", "Moderate drizzle"),
-    55: ("🌧️", "Dense drizzle"),
-    56: ("❄️", "Light freezing drizzle"),
-    57: ("❄️", "Dense freezing drizzle"),
-    61: ("🌧️", "Slight rain"),
-    63: ("🌧️", "Moderate rain"),
-    65: ("🌧️", "Heavy rain"),
-    66: ("❄️", "Light freezing rain"),
-    67: ("❄️", "Heavy freezing rain"),
-    71: ("❄️", "Slight snow fall"),
-    73: ("❄️", "Moderate snow fall"),
-    75: ("❄️", "Heavy snow fall"),
-    77: ("❄️", "Snow grains"),
-    80: ("🌧️", "Slight rain showers"),
-    81: ("🌧️", "Moderate rain showers"),
-    82: ("🌧️", "Violent rain showers"),
-    85: ("❄️", "Slight snow showers"),
-    86: ("❄️", "Heavy snow showers"),
-    95: ("⛈️", "Thunderstorm"),
-    96: ("⛈️", "Thunderstorm with slight hail"),
-    99: ("⛈️", "Thunderstorm with heavy hail")
-}
-
-def get_wind_dir(deg):
-    if deg is None:
-        return "N/A"
-    deg = deg % 360
-    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
-    idx = int((deg + 11.25) / 22.5) % 16
-    return directions[idx]
-
-def fetch_weather(city="mumbai", lat=None, lng=None):
-    """
-    Fetches daily weather forecast and current condition for the specified city or coordinates.
-    Uses Open-Meteo as the primary reliable API, falling back to wttr.in.
-    """
-    city_key = city.lower().strip()
-    use_coords = lat is not None and lng is not None
-    
-    # 1. Try Open-Meteo first if coordinates are explicitly provided or match a city
-    if use_coords or city_key in CITY_COORDINATES:
-        c_lat, c_lng = (lat, lng) if use_coords else CITY_COORDINATES[city_key]
-        url = (
-            f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={c_lat}&longitude={c_lng}"
-            f"&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m"
-            f"&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
-        )
-        try:
-            logger.info(f"Fetching Weather from Open-Meteo for coordinates: {c_lat}, {c_lng} (use_coords={use_coords})...")
-            response = http_session.get(url, timeout=15)
-            response.raise_for_status()
-            data = response.json()
-            
-            curr = data.get("current", {})
-            daily = data.get("daily", {})
-            
-            temp = curr.get("temperature_2m", "N/A")
-            feels = curr.get("apparent_temperature", "N/A")
-            humidity = curr.get("relative_humidity_2m", "N/A")
-            weather_code = curr.get("weather_code", 0)
-            wind_speed = curr.get("wind_speed_10m", "N/A")
-            wind_deg = curr.get("wind_direction_10m", 0)
-            wind_dir = get_wind_dir(wind_deg)
-            
-            min_temp = daily.get("temperature_2m_min", ["N/A"])[0]
-            max_temp = daily.get("temperature_2m_max", ["N/A"])[0]
-            
-            emoji, desc = WMO_CODES.get(weather_code, ("☀️", "Clear sky"))
-            
-            display_name = f"({c_lat}, {c_lng})" if use_coords else city.upper()
-            weather_text = (
-                f"🌡️ <b>WEATHER FORECAST ({display_name})</b>\n"
-                f"• <b>Condition:</b> {emoji} <code>{html.escape(desc, quote=False)}</code>\n"
-                f"• <b>Temperature:</b> <code>{temp}°C</code> (Feels like <code>{feels}°C</code>)\n"
-                f"• <b>Today's Range:</b> Min <code>{min_temp}°C</code> | Max <code>{max_temp}°C</code>\n"
-                f"• <b>Humidity / Wind:</b> <code>{humidity}%</code> / <code>{wind_speed} km/h {wind_dir}</code>\n\n"
-            )
-            weather_dict = {
-                "temp": temp,
-                "feels": feels,
-                "desc": desc,
-                "min_temp": min_temp,
-                "max_temp": max_temp,
-                "humidity": humidity,
-                "wind": f"{wind_speed} km/h {wind_dir}"
-            }
-            return weather_text, weather_dict
-        except Exception as e:
-            logger.warning(f"Failed to fetch from Open-Meteo: {e}. Falling back to wttr.in...")
-
-    # 2. Fallback to wttr.in
-    wttr_target = f"{lat},{lng}" if use_coords else city
-    url = f"https://wttr.in/{wttr_target}?format=j1"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    try:
-        logger.info(f"Fetching Weather from wttr.in fallback for {wttr_target}...")
-        response = http_session.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        
-        curr = data.get("current_condition", [{}])[0]
-        forecast = data.get("weather", [{}])[0]
-        
-        temp = curr.get("temp_C", "N/A")
-        feels = curr.get("FeelsLikeC", "N/A")
-        humidity = curr.get("humidity", "N/A")
-        desc = curr.get("weatherDesc", [{}])[0].get("value", "N/A")
-        wind_speed = curr.get("windspeedKmph", "N/A")
-        wind_dir = curr.get("winddir16Point", "N/A")
-        
-        min_temp = forecast.get("mintempC", "N/A")
-        max_temp = forecast.get("maxtempC", "N/A")
-        
-        emoji = "☀️"
-        desc_lower = desc.lower()
-        if "rain" in desc_lower or "drizzle" in desc_lower or "shower" in desc_lower:
-            emoji = "🌧️"
-        elif "thunder" in desc_lower:
-            emoji = "⛈️"
-        elif "snow" in desc_lower or "ice" in desc_lower:
-            emoji = "❄️"
-        elif "cloud" in desc_lower or "overcast" in desc_lower:
-            emoji = "☁️"
-        elif "mist" in desc_lower or "fog" in desc_lower or "haze" in desc_lower:
-            emoji = "🌫️"
-            
-        display_name = f"({lat}, {lng})" if use_coords else city.upper()
-        weather_text = (
-            f"🌡️ <b>WEATHER FORECAST ({display_name})</b>\n"
-            f"• <b>Condition:</b> {emoji} <code>{html.escape(desc, quote=False)}</code>\n"
-            f"• <b>Temperature:</b> <code>{temp}°C</code> (Feels like <code>{feels}°C</code>)\n"
-            f"• <b>Today's Range:</b> Min <code>{min_temp}°C</code> | Max <code>{max_temp}°C</code>\n"
-            f"• <b>Humidity / Wind:</b> <code>{humidity}%</code> / <code>{wind_speed} km/h {wind_dir}</code>\n\n"
-        )
-        weather_dict = {
-            "temp": temp,
-            "feels": feels,
-            "desc": desc,
-            "min_temp": min_temp,
-            "max_temp": max_temp,
-            "humidity": humidity,
-            "wind": f"{wind_speed} km/h {wind_dir}"
-        }
-        return weather_text, weather_dict
-    except Exception as e:
-        logger.error(f"Error fetching weather from both APIs: {e}")
-        return "⚠️ <i>Weather forecast could not be retrieved today.</i>\n\n", {"failed": True}
 def get_font(font_path, size):
     try:
         return ImageFont.truetype(font_path, size)
@@ -378,12 +201,12 @@ def get_filtered_holidays(wiki_data, bharat_event=None):
             indian_holidays.append(text)
     return indian_holidays[:4]
 
-def generate_infographic_card(city, date_str, panchang_data, weather_data, wiki_data, bharat_event=None):
+def generate_infographic_card(city, date_str, panchang_data, wiki_data, bharat_event=None):
     """
     Generates a beautiful daily infographic image card containing all sections.
     """
-    # Create a dark-themed canvas (800 x 1460)
-    width, height = 800, 1460
+    # Create a dark-themed canvas (800 x 1360)
+    width, height = 800, 1360
     bg_color = (15, 23, 42)  # #0F172A Slate-900
     img = Image.new("RGB", (width, height), bg_color)
     draw = ImageDraw.Draw(img)
@@ -413,11 +236,10 @@ def generate_infographic_card(city, date_str, panchang_data, weather_data, wiki_
     draw.text((40, 70), f"{city.upper()}  •  {date_str}", font=sub_font, fill=text_secondary)
     draw.line([30, 100, width-30, 100], fill=border_color, width=1)
     
-    # Card 1: HINDU ALMANAC (x: 30 to 385, y: 120 to 420)
-    draw.rounded_rectangle([30, 120, 385, 420], radius=10, fill=card_bg)
-    draw.text((50, 140), "🕉 HINDU ALMANAC", font=section_title_font, fill=(245, 158, 11)) # Amber-500
+    # Card 1: HINDU ALMANAC (x: 30 to 770, y: 120 to 330)
+    draw.rounded_rectangle([30, 120, 770, 330], radius=10, fill=card_bg)
+    draw.text((50, 135), "🕉 HINDU ALMANAC (PANCHANG)", font=section_title_font, fill=(245, 158, 11)) # Amber-500
     
-    p_y = 180
     if panchang_data:
         vara = panchang_data.get('vara', {}).get('name', 'N/A')
         tithi = panchang_data.get('tithi', {}).get('name', 'N/A')
@@ -431,63 +253,38 @@ def generate_infographic_card(city, date_str, panchang_data, weather_data, wiki_
         rahu = muhurta.get('rahu_kalam', 'N/A')
         abhijit = muhurta.get('abhijit_muhurtam', 'N/A')
         
-        p_items = [
+        # Left Column (Vara, Tithi, Nakshatra, Yoga / Karana)
+        p_y_left = 175
+        p_items_left = [
             ("Vara (Day)", vara),
             ("Tithi", tithi),
             ("Nakshatra", nakshatra),
-            ("Yoga / Karana", f"{yoga} / {karana}"),
+            ("Yoga / Karana", f"{yoga} / {karana}")
+        ]
+        for label, val in p_items_left:
+            draw.text((50, p_y_left), f"{label}:", font=content_bold_font, fill=text_secondary)
+            draw.text((180, p_y_left), str(val), font=content_font, fill=text_primary)
+            p_y_left += 32
+            
+        # Right Column (Sunrise/Sunset, Abhijit Muhurta, Rahu Kalam)
+        p_y_right = 175
+        p_items_right = [
             ("Sunrise / Sunset", f"{sunrise} / {sunset}"),
             ("Abhijit Muh.", abhijit),
             ("Rahu Kalam", rahu)
         ]
-        for label, val in p_items:
-            draw.text((50, p_y), f"{label}:", font=content_bold_font, fill=text_secondary)
-            draw.text((180, p_y), str(val), font=content_font, fill=text_primary)
-            p_y += 32
+        for label, val in p_items_right:
+            draw.text((420, p_y_right), f"{label}:", font=content_bold_font, fill=text_secondary)
+            draw.text((570, p_y_right), str(val), font=content_font, fill=text_primary)
+            p_y_right += 32
     else:
-        draw.text((50, p_y), "Data not available", font=content_font, fill=text_secondary)
+        draw.text((50, 175), "Data not available", font=content_font, fill=text_secondary)
 
-    # Card 2: WEATHER FORECAST (x: 415 to 770, y: 120 to 420)
-    draw.rounded_rectangle([415, 120, 770, 420], radius=10, fill=card_bg)
-    draw.text((435, 140), "🌡️ WEATHER FORECAST", font=section_title_font, fill=(59, 130, 246)) # Blue-500
+    # Card 2: HISTORICAL EVENTS (x: 30 to 770, y: 350 to 760)
+    draw.rounded_rectangle([30, 350, 770, 760], radius=10, fill=card_bg)
+    draw.text((50, 370), "🏛 HISTORICAL EVENTS", font=section_title_font, fill=(20, 184, 166)) # Teal-500
     
-    w_y = 180
-    if weather_data and not weather_data.get("failed"):
-        temp = weather_data.get("temp", "N/A")
-        feels = weather_data.get("feels", "N/A")
-        desc = weather_data.get("desc", "N/A")
-        min_t = weather_data.get("min_temp", "N/A")
-        max_t = weather_data.get("max_temp", "N/A")
-        humidity = weather_data.get("humidity", "N/A")
-        wind = weather_data.get("wind", "N/A")
-        
-        w_items = [
-            ("Condition", desc),
-            ("Temperature", f"{temp}°C"),
-            ("Feels Like", f"{feels}°C"),
-            ("Today's Range", f"Min {min_t}°C | Max {max_t}°C"),
-            ("Humidity", f"{humidity}%"),
-            ("Wind Speed", wind)
-        ]
-        for label, val in w_items:
-            draw.text((435, w_y), f"{label}:", font=content_bold_font, fill=text_secondary)
-            if label == "Condition":
-                desc_lines = wrap_text(str(val), content_font, 170)
-                draw.text((565, w_y), desc_lines[0], font=content_font, fill=text_primary)
-                if len(desc_lines) > 1:
-                    w_y += 18
-                    draw.text((565, w_y), desc_lines[1], font=content_font, fill=text_primary)
-            else:
-                draw.text((565, w_y), str(val), font=content_font, fill=text_primary)
-            w_y += 32
-    else:
-        draw.text((435, w_y), "Data not available", font=content_font, fill=text_secondary)
-
-    # Card 3: HISTORICAL EVENTS (x: 30 to 770, y: 440 to 860)
-    draw.rounded_rectangle([30, 440, 770, 860], radius=10, fill=card_bg)
-    draw.text((50, 460), "🏛 HISTORICAL EVENTS", font=section_title_font, fill=(20, 184, 166)) # Teal-500
-    
-    ev_y = 500
+    ev_y = 410
     events_list = get_filtered_events(wiki_data) if wiki_data else []
     if events_list:
         for ev in events_list:
@@ -507,11 +304,11 @@ def generate_infographic_card(city, date_str, panchang_data, weather_data, wiki_
     else:
         draw.text((50, ev_y), "No major historical events recorded on this day.", font=content_font, fill=text_secondary)
 
-    # Card 4: BIRTH ANNIVERSARIES (x: 30 to 385, y: 880 to 1190)
-    draw.rounded_rectangle([30, 880, 385, 1190], radius=10, fill=card_bg)
-    draw.text((50, 900), "🎂 BIRTH ANNIVERSARIES", font=section_title_font, fill=(236, 72, 153)) # Pink-500
+    # Card 3: BIRTH ANNIVERSARIES (x: 30 to 385, y: 780 to 1090)
+    draw.rounded_rectangle([30, 780, 385, 1090], radius=10, fill=card_bg)
+    draw.text((50, 800), "🎂 BIRTH ANNIVERSARIES", font=section_title_font, fill=(236, 72, 153)) # Pink-500
     
-    b_y = 940
+    b_y = 840
     births_list = get_filtered_births(wiki_data) if wiki_data else []
     if births_list:
         for b in births_list:
@@ -531,11 +328,11 @@ def generate_infographic_card(city, date_str, panchang_data, weather_data, wiki_
     else:
         draw.text((50, b_y), "None recorded.", font=content_font, fill=text_secondary)
 
-    # Card 5: REMEMBRANCE DAYS (x: 415 to 770, y: 880 to 1190)
-    draw.rounded_rectangle([415, 880, 770, 1190], radius=10, fill=card_bg)
-    draw.text((435, 900), "🕯 REMEMBRANCE DAYS", font=section_title_font, fill=(168, 85, 247)) # Purple-500
+    # Card 4: REMEMBRANCE DAYS (x: 415 to 770, y: 780 to 1090)
+    draw.rounded_rectangle([415, 780, 770, 1090], radius=10, fill=card_bg)
+    draw.text((435, 800), "🕯 REMEMBRANCE DAYS", font=section_title_font, fill=(168, 85, 247)) # Purple-500
     
-    d_y = 940
+    d_y = 840
     deaths_list = get_filtered_deaths(wiki_data) if wiki_data else []
     if deaths_list:
         for d in deaths_list:
@@ -555,11 +352,11 @@ def generate_infographic_card(city, date_str, panchang_data, weather_data, wiki_
     else:
         draw.text((435, d_y), "None recorded.", font=content_font, fill=text_secondary)
 
-    # Card 6: FESTIVALS & HOLIDAYS (x: 30 to 770, y: 1210 to 1400)
-    draw.rounded_rectangle([30, 1210, 770, 1400], radius=10, fill=card_bg)
-    draw.text((50, 1230), "🎉 FESTIVALS & HOLIDAYS", font=section_title_font, fill=(16, 185, 129)) # Green-500
+    # Card 5: FESTIVALS & HOLIDAYS (x: 30 to 770, y: 1110 to 1300)
+    draw.rounded_rectangle([30, 1110, 770, 1300], radius=10, fill=card_bg)
+    draw.text((50, 1130), "🎉 FESTIVALS & HOLIDAYS", font=section_title_font, fill=(16, 185, 129)) # Green-500
     
-    h_y = 1270
+    h_y = 1170
     holidays_list = get_filtered_holidays(wiki_data, bharat_event=bharat_event) if wiki_data or bharat_event else []
     if holidays_list:
         for h in holidays_list:
@@ -579,7 +376,7 @@ def generate_infographic_card(city, date_str, panchang_data, weather_data, wiki_
     # Footer Section
     footer_text = "✨ Have a blessed and wonderful day ahead! ✨"
     f_w = get_text_width(footer_text, footer_font)
-    draw.text(((width - f_w) // 2, 1420), footer_text, font=footer_font, fill=(245, 158, 11)) # Amber-500
+    draw.text(((width - f_w) // 2, 1320), footer_text, font=footer_font, fill=(245, 158, 11)) # Amber-500
     
     # Save image
     out_path = "daily_card.png"
@@ -858,11 +655,10 @@ def main():
     panchang_data = fetch_panchang(date_str, city=city, lat=lat, lng=lng)
     wiki_data = fetch_wikipedia_events(month_str, day_str)
     bharat_event = fetch_bharat_festival(now_ist)
-    weather_text, weather_dict = fetch_weather(city, lat=lat, lng=lng)
 
     # 4. Generate Infographic Card
     display_location = f"({lat}, {lng})" if (lat is not None and lng is not None) else city
-    photo_path = generate_infographic_card(display_location, readable_date, panchang_data, weather_dict, wiki_data, bharat_event)
+    photo_path = generate_infographic_card(display_location, readable_date, panchang_data, wiki_data, bharat_event)
 
     # 5. Format message (Backup text version printed to local stdout log)
     display_location_upper = display_location.upper()
@@ -874,14 +670,13 @@ def main():
     panchang_text = format_panchang(panchang_data)
     
     # Prepend a divider before wiki_text if live data was successfully fetched
-    has_live_data = bool(panchang_data) or not weather_text.startswith("⚠️")
-    divider = "━━━━━━━━━━━━━━━━━━━━\n\n" if has_live_data else ""
+    divider = "━━━━━━━━━━━━━━━━━━━━\n\n" if panchang_data else ""
     wiki_text = format_wikipedia_section(wiki_data, bharat_event=bharat_event)
     
     footer_divider = "━━━━━━━━━━━━━━━━━━━━\n"
     footer = f"{footer_divider}✨ <i>Have a blessed and wonderful day ahead!</i>"
     
-    full_message = f"{header}{panchang_text}{weather_text}{divider}{wiki_text}{footer}"
+    full_message = f"{header}{panchang_text}{divider}{wiki_text}{footer}"
     
     # 6. Handle Telegram delivery
     telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")

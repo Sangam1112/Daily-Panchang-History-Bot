@@ -9,16 +9,6 @@ import main
 
 class TestTodaySpecialBot(unittest.TestCase):
 
-    def test_get_wind_dir(self):
-        self.assertEqual(main.get_wind_dir(0), "N")
-        self.assertEqual(main.get_wind_dir(360), "N")
-        self.assertEqual(main.get_wind_dir(90), "E")
-        self.assertEqual(main.get_wind_dir(180), "S")
-        self.assertEqual(main.get_wind_dir(270), "W")
-        self.assertEqual(main.get_wind_dir(45), "NE")
-        self.assertEqual(main.get_wind_dir(225), "SW")
-        self.assertEqual(main.get_wind_dir(None), "N/A")
-
     def test_is_indian_context_matches(self):
         # Should match Indian names, places, events
         self.assertTrue(main.is_indian_context("Swami Vivekananda was an Indian monk."))
@@ -32,11 +22,6 @@ class TestTodaySpecialBot(unittest.TestCase):
         self.assertFalse(main.is_indian_context("Zhuo Yanming, Chinese Buddhist monk and emperor"))
         self.assertFalse(main.is_indian_context("Patrick Roy, Canadian ice hockey player"))
         self.assertFalse(main.is_indian_context("Japanese Buddhist Zen master Dogen was born."))
-
-    def test_city_coordinates_exist(self):
-        self.assertIn("mumbai", main.CITY_COORDINATES)
-        self.assertIn("delhi", main.CITY_COORDINATES)
-        self.assertEqual(main.CITY_COORDINATES["mumbai"], (19.0760, 72.8777))
 
     @patch('main.http_session.get')
     def test_fetch_wikipedia_events_mock(self, mock_get):
