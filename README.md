@@ -7,6 +7,8 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 - **Hindu Almanac (Panchang)**: Retrieves daily Vara (day), Tithi, Nakshatra, Yoga, Karana, Sun timings (Sunrise & Sunset), Rahu Kalam, and Abhijit Muhurta computed for Mumbai, India. Uses the free public API of [Nitya Panchangam](https://nityapanchangam.com/api/).
 - **Major Events (Indian Context)**: Fetches historical events, notable birth/death anniversaries, and festivals/holidays from Wikipedia's "On This Day" feed API, filtered dynamically using regular expressions for Indian history, personalities, and cultural terms.
 - **Telegram Pushes**: Sends a clean HTML-formatted message to a specified Telegram channel, group, or direct chat using a Telegram Bot.
+- **Resilient Requests**: Configured with automatic session retries and exponential backoff to handle temporary network glitches or API rate-limiting (HTTP 429, 5xx).
+- **Message Split Guard**: Automatically partitions the message at natural paragraph boundaries if the generated digest exceeds Telegram's 4,096-character API limit.
 - **Automated Scheduling**: Scheduled to run daily at **08:47 AM IST** (03:17 AM UTC) using GitHub Actions.
 
 ---
