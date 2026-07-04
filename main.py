@@ -44,8 +44,33 @@ INDIAN_KEYWORDS = [
 # Compile pattern for case-insensitive matching
 INDIAN_PATTERN = re.compile("|".join(INDIAN_KEYWORDS), re.IGNORECASE)
 
+# Exclusion patterns (non-Indian context, to filter out false positives from common surnames or religions)
+EXCLUSION_KEYWORDS = [
+    r"\bchinese\b", r"\bjapanese\b", r"\btibetan\b", r"\bsri lankan\b", 
+    r"\bnepalese\b", r"\bthai\b", r"\bvietnamese\b", r"\bkorean\b",
+    r"\bburmese\b", r"\bcanadian\b", r"\bamerican\b", r"\benglish\b", 
+    r"\bbritish\b", r"\baustralian\b", r"\bfrench\b", r"\bgerman\b", 
+    r"\bitalian\b", r"\bspanish\b", r"\bdutch\b", r"\bswedish\b", 
+    r"\bnorwegian\b", r"\birish\b", r"\bscottish\b", r"\bwelsh\b", 
+    r"\brussian\b", r"\bpolish\b", r"\bgreek\b", r"\bturkish\b", 
+    r"\begyptian\b", r"\biranian\b", r"\bpersian\b", r"\biraqi\b", 
+    r"\bsaudi\b", r"\bbrazilian\b", r"\bargentine\b", r"\bmexican\b"
+]
+EXCLUSION_PATTERN = re.compile("|".join(EXCLUSION_KEYWORDS), re.IGNORECASE)
+
+# Words that override exclusions (if they are present, we allow the match anyway)
+ALLOW_KEYWORDS = [r"\bindia(n)?\b", r"\bhindu(s|ism)?\b", r"\bsikh(s|ism)?\b", r"\bjain(s|ism)?\b"]
+ALLOW_PATTERN = re.compile("|".join(ALLOW_KEYWORDS), re.IGNORECASE)
+
 def is_indian_context(text):
-    return bool(INDIAN_PATTERN.search(text))
+    if not INDIAN_PATTERN.search(text):
+        return False
+    # If the text matches an exclusion keyword (e.g. "Chinese Buddhist", "Canadian ice hockey player Roy"),
+    # we filter it out unless it explicitly mentions core Indian keywords.
+    if EXCLUSION_PATTERN.search(text):
+        if not ALLOW_PATTERN.search(text):
+            return False
+    return True
 
 def fetch_panchang(date_str, city="mumbai"):
     """
