@@ -4,7 +4,12 @@ on:
   schedule:
     # 08:47 AM IST is 03:17 AM UTC (IST = UTC + 5:30)
     - cron: '17 3 * * *'
+    # 09:00 PM IST is 09:00 PM IST (15:30 UTC)
+    - cron: '30 15 * * *'
   workflow_dispatch: # Allows manual trigger from the Actions tab
+
+permissions:
+  contents: write
 
 jobs:
   run-bot:
@@ -33,3 +38,12 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python main.py
+
+      - name: Commit and Push Message ID Persistence File
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add sent_message_id.json || true
+          git commit -m "Update sent_message_id.json [skip ci]" || echo "No changes to commit"
+          git pull --rebase origin main || true
+          git push origin main || true

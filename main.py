@@ -4,6 +4,7 @@ import html
 import logging
 import requests
 import re
+import json
 from datetime import datetime
 try:
     from zoneinfo import ZoneInfo
@@ -550,8 +551,9 @@ def send_telegram_message(token, chat_id, message_text, photo_path=None, caption
     Sends the formatted message to Telegram. Handles message splitting 
     at paragraph boundaries if the content exceeds Telegram's 4096-character limit.
     If photo_path is provided, it first sends the photo using sendPhoto.
+    Returns the message_id of the sent photo (or last sent text message) if successful.
     """
-    success = True
+    sent_message_id = None
 
     # 1. Send the photo card first if provided
     if photo_path and os.path.exists(photo_path):
@@ -569,14 +571,16 @@ def send_telegram_message(token, chat_id, message_text, photo_path=None, caption
                 response_json = response.json()
                 if response.status_code == 200 and response_json.get("ok"):
                     logger.info("Infographic card sent successfully!")
+                    sent_message_id = response_json.get("result", {}).get("message_id")
                 else:
                     logger.error(f"Failed to send Telegram photo: {response_json}")
-                    success = False
         except Exception as e:
             logger.error(f"Error sending Telegram photo: {e}")
-            success = False
 
     # 2. Split text into paragraphs/sections at natural double newline boundaries
+    if not message_text.strip():
+        return sent_message_id
+
     paragraphs = message_text.split("\n\n")
     chunks = []
     current_chunk = []
@@ -617,14 +621,56 @@ def send_telegram_message(token, chat_id, message_text, photo_path=None, caption
             response_json = response.json()
             if response.status_code == 200 and response_json.get("ok"):
                 logger.info(f"Chunk {i} sent successfully!")
+                sent_message_id = response_json.get("result", {}).get("message_id")
             else:
                 logger.error(f"Failed to send Telegram chunk {i}: {response_json}")
-                success = False
         except Exception as e:
             logger.error(f"Error sending Telegram chunk {i}: {e}")
-            success = False
             
-    return success
+    return sent_message_id
+
+def delete_telegram_message(token, chat_id, message_id):
+    """
+    Deletes a message from Telegram.
+    """
+    url = f"https://api.telegram.org/bot{token}/deleteMessage"
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id
+    }
+    try:
+        logger.info(f"Deleting Telegram message with ID: {message_id}...")
+        response = http_session.post(url, json=payload, timeout=15)
+        response_json = response.json()
+        if response.status_code == 200 and response_json.get("ok"):
+            logger.info("Telegram message deleted successfully!")
+            return True
+        else:
+            logger.error(f"Failed to delete Telegram message: {response_json}")
+            return False
+    except Exception as e:
+        logger.error(f"Error deleting Telegram message: {e}")
+        return False
+
+def get_saved_message_id():
+    path = "sent_message_id.json"
+    if os.path.exists(path):
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+                return data.get("message_id")
+        except Exception as e:
+            logger.error(f"Error reading sent_message_id.json: {e}")
+    return None
+
+def save_message_id(message_id):
+    path = "sent_message_id.json"
+    try:
+        with open(path, "w") as f:
+            json.dump({"message_id": message_id}, f)
+        logger.info(f"Saved message_id {message_id} to sent_message_id.json")
+    except Exception as e:
+        logger.error(f"Error writing to sent_message_id.json: {e}")
 
 def main():
     # 1. Get current date in IST
@@ -638,7 +684,29 @@ def main():
 
     logger.info(f"Running daily update for date (IST): {readable_date}")
 
-    # 2. Parse GPS coordinates if set in environment
+    # 2. Check current hour in IST to determine run mode (Send vs Delete)
+    # Deletion triggers in the evening (9:00 PM IST is hour 21)
+    if now_ist.hour >= 18:
+        logger.info("Evening run detected. Executing message deletion sequence...")
+        telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+        telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+        
+        if not telegram_token or not telegram_chat_id:
+            logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping deletion.")
+            return
+            
+        saved_id = get_saved_message_id()
+        if saved_id:
+            success = delete_telegram_message(telegram_token, telegram_chat_id, saved_id)
+            if success:
+                save_message_id(None) # Reset
+            else:
+                sys.exit(1)
+        else:
+            logger.info("No saved message_id found in sent_message_id.json. Nothing to delete.")
+        return
+
+    # 3. Parse GPS coordinates if set in environment (Morning/Send Mode)
     lat_env = os.environ.get("LAT")
     lng_env = os.environ.get("LNG")
     lat, lng = None, None
@@ -650,17 +718,17 @@ def main():
         except ValueError as e:
             logger.error(f"Error parsing LAT/LNG environment variables: {e}")
 
-    # 3. Fetch data
+    # 4. Fetch data
     city = os.environ.get("CITY", "mumbai").lower()
     panchang_data = fetch_panchang(date_str, city=city, lat=lat, lng=lng)
     wiki_data = fetch_wikipedia_events(month_str, day_str)
     bharat_event = fetch_bharat_festival(now_ist)
 
-    # 4. Generate Infographic Card
+    # 5. Generate Infographic Card
     display_location = f"({lat}, {lng})" if (lat is not None and lng is not None) else city
     photo_path = generate_infographic_card(display_location, readable_date, panchang_data, wiki_data, bharat_event)
 
-    # 5. Format message (Backup text version printed to local stdout log)
+    # 6. Format message (Backup text version printed to local stdout log)
     display_location_upper = display_location.upper()
     header = (
         f"🗓 <b>DAILY UPDATE • {display_location_upper}</b>\n"
@@ -678,7 +746,7 @@ def main():
     
     full_message = f"{header}{panchang_text}{divider}{wiki_text}{footer}"
     
-    # 6. Handle Telegram delivery
+    # 7. Handle Telegram delivery
     telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     
@@ -694,15 +762,17 @@ def main():
             f"✨ <i>Have a blessed and wonderful day ahead!</i>"
         )
         # Send ONLY the graphical card image to Telegram to prevent duplication
-        success = send_telegram_message(
+        sent_id = send_telegram_message(
             telegram_token, 
             telegram_chat_id, 
             message_text="", 
             photo_path=photo_path, 
             caption=photo_caption
         )
-        if not success:
-            sys.exit(1)
+        if sent_id:
+            save_message_id(sent_id)
+        else:
+            logger.warning("Message sent but failed to retrieve message_id. Not saving.")
     else:
         logger.warning(
             "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID environment variables are not set. "
