@@ -47,7 +47,7 @@ INDIAN_PATTERN = re.compile("|".join(INDIAN_KEYWORDS), re.IGNORECASE)
 def is_indian_context(text):
     return bool(INDIAN_PATTERN.search(text))
 
-def fetch_panchang(date_str, city="delhi"):
+def fetch_panchang(date_str, city="mumbai"):
     """
     Fetches Hindu Almanac (Panchang) details for the specified date and city.
     """
@@ -264,7 +264,7 @@ def main():
     logger.info(f"Running daily update for date (IST): {readable_date}")
 
     # 2. Fetch data
-    city = os.environ.get("CITY", "delhi").lower()
+    city = os.environ.get("CITY", "mumbai").lower()
     panchang_data = fetch_panchang(date_str, city=city)
     wiki_data = fetch_wikipedia_events(month_str, day_str)
     bharat_event = fetch_bharat_festival(now_ist)
