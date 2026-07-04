@@ -227,7 +227,8 @@ def main():
     logger.info(f"Running daily update for date (IST): {readable_date}")
 
     # 2. Fetch data
-    panchang_data = fetch_panchang(date_str)
+    city = os.environ.get("CITY", "delhi").lower()
+    panchang_data = fetch_panchang(date_str, city=city)
     wiki_data = fetch_wikipedia_events(month_str, day_str)
 
     # 3. Format message
