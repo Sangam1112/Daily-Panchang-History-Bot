@@ -13,6 +13,7 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 - **GPS Coordinates Override**: Optionally reads `LAT` and `LNG` environment variables to compute calculations dynamically for any coordinate worldwide instead of just static city lists.
 - **CI/CD Verification**: Includes a unit test suite (`test_main.py`) running automatically on GitHub Actions on every push to verify filters and layout components.
 - **Automated Scheduling**: Scheduled to run daily at **08:47 AM IST** (03:17 AM UTC) using GitHub Actions.
+- **Automated Message Deletion**: Automatically deletes the daily sent update from all users' Telegram app/handsets at **09:00 PM IST** (15:30 UTC) daily via a serverless GitHub Actions persistence cycle.
 
 ---
 
