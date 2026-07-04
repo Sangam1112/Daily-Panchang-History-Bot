@@ -113,16 +113,121 @@ def fetch_panchang(date_str, city="mumbai"):
         logger.error(f"Error fetching Panchang: {e}")
         return None
 
+# City Coordinates mapping for reliable Open-Meteo calculations
+CITY_COORDINATES = {
+    "mumbai": (19.0760, 72.8777),
+    "delhi": (28.6139, 77.2090),
+    "new delhi": (28.6139, 77.2090),
+    "bangalore": (12.9716, 77.5946),
+    "bengaluru": (12.9716, 77.5946),
+    "chennai": (13.0827, 80.2707),
+    "kolkata": (22.5726, 88.3639),
+    "hyderabad": (17.3850, 78.4867),
+    "pune": (18.5204, 73.8567),
+    "ahmedabad": (23.0225, 72.5714),
+    "jaipur": (26.9124, 75.7873),
+    "newyork": (40.7128, -74.0060),
+    "london": (51.5074, -0.1278),
+    "singapore": (1.3521, 103.8198),
+    "dubai": (25.2048, 55.2708)
+}
+
+# WMO weather code mappings
+WMO_CODES = {
+    0: ("☀️", "Clear sky"),
+    1: ("🌤️", "Mainly clear"),
+    2: ("⛅", "Partly cloudy"),
+    3: ("☁️", "Overcast"),
+    45: ("🌫️", "Fog"),
+    48: ("🌫️", "Depositing rime fog"),
+    51: ("🌧️", "Light drizzle"),
+    53: ("🌧️", "Moderate drizzle"),
+    55: ("🌧️", "Dense drizzle"),
+    56: ("❄️", "Light freezing drizzle"),
+    57: ("❄️", "Dense freezing drizzle"),
+    61: ("🌧️", "Slight rain"),
+    63: ("🌧️", "Moderate rain"),
+    65: ("🌧️", "Heavy rain"),
+    66: ("❄️", "Light freezing rain"),
+    67: ("❄️", "Heavy freezing rain"),
+    71: ("❄️", "Slight snow fall"),
+    73: ("❄️", "Moderate snow fall"),
+    75: ("❄️", "Heavy snow fall"),
+    77: ("❄️", "Snow grains"),
+    80: ("🌧️", "Slight rain showers"),
+    81: ("🌧️", "Moderate rain showers"),
+    82: ("🌧️", "Violent rain showers"),
+    85: ("❄️", "Slight snow showers"),
+    86: ("❄️", "Heavy snow showers"),
+    95: ("⛈️", "Thunderstorm"),
+    96: ("⛈️", "Thunderstorm with slight hail"),
+    99: ("⛈️", "Thunderstorm with heavy hail")
+}
+
+def get_wind_dir(deg):
+    if deg is None:
+        return "N/A"
+    deg = deg % 360
+    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    idx = int((deg + 11.25) / 22.5) % 16
+    return directions[idx]
+
 def fetch_weather(city="mumbai"):
     """
-    Fetches daily weather forecast and current condition for the specified city from wttr.in.
+    Fetches daily weather forecast and current condition for the specified city.
+    Uses Open-Meteo as the primary reliable API, falling back to wttr.in.
     """
+    city_key = city.lower().strip()
+    
+    # 1. Try Open-Meteo first if coordinates exist
+    if city_key in CITY_COORDINATES:
+        lat, lng = CITY_COORDINATES[city_key]
+        url = (
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={lat}&longitude={lng}"
+            f"&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m"
+            f"&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
+        )
+        try:
+            logger.info(f"Fetching Weather from Open-Meteo for coordinates: {lat}, {lng} ({city_key})...")
+            response = http_session.get(url, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+            
+            curr = data.get("current", {})
+            daily = data.get("daily", {})
+            
+            temp = curr.get("temperature_2m", "N/A")
+            feels = curr.get("apparent_temperature", "N/A")
+            humidity = curr.get("relative_humidity_2m", "N/A")
+            weather_code = curr.get("weather_code", 0)
+            wind_speed = curr.get("wind_speed_10m", "N/A")
+            wind_deg = curr.get("wind_direction_10m", 0)
+            wind_dir = get_wind_dir(wind_deg)
+            
+            min_temp = daily.get("temperature_2m_min", ["N/A"])[0]
+            max_temp = daily.get("temperature_2m_max", ["N/A"])[0]
+            
+            emoji, desc = WMO_CODES.get(weather_code, ("☀️", "Clear sky"))
+            
+            weather_text = (
+                f"🌡️ <b>WEATHER FORECAST ({city.upper()})</b>\n"
+                f"• <b>Condition:</b> {emoji} <code>{html.escape(desc, quote=False)}</code>\n"
+                f"• <b>Temperature:</b> <code>{temp}°C</code> (Feels like <code>{feels}°C</code>)\n"
+                f"• <b>Today's Range:</b> Min <code>{min_temp}°C</code> | Max <code>{max_temp}°C</code>\n"
+                f"• <b>Humidity / Wind:</b> <code>{humidity}%</code> / <code>{wind_speed} km/h {wind_dir}</code>\n\n"
+            )
+            return weather_text
+        except Exception as e:
+            logger.warning(f"Failed to fetch from Open-Meteo: {e}. Falling back to wttr.in...")
+
+    # 2. Fallback to wttr.in
     url = f"https://wttr.in/{city}?format=j1"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
-        logger.info(f"Fetching Weather for {city}...")
+        logger.info(f"Fetching Weather from wttr.in fallback for {city}...")
         response = http_session.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json()
@@ -140,7 +245,6 @@ def fetch_weather(city="mumbai"):
         min_temp = forecast.get("mintempC", "N/A")
         max_temp = forecast.get("maxtempC", "N/A")
         
-        # Match weather descriptions to emojis
         emoji = "☀️"
         desc_lower = desc.lower()
         if "rain" in desc_lower or "drizzle" in desc_lower or "shower" in desc_lower:
@@ -163,7 +267,7 @@ def fetch_weather(city="mumbai"):
         )
         return weather_text
     except Exception as e:
-        logger.error(f"Error fetching weather: {e}")
+        logger.error(f"Error fetching weather from both APIs: {e}")
         return "⚠️ <i>Weather forecast could not be retrieved today.</i>\n\n"
 
 def fetch_wikipedia_events(month, day):
