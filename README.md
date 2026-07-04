@@ -16,31 +16,41 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 ## Output Preview
 
 ```html
-📅 DAILY UPDATE: July 04, 2026 (Saturday)
+🗓 DAILY UPDATE • MUMBAI
+July 04, 2026 (Saturday)
+━━━━━━━━━━━━━━━━━━━━
 
-🕉 Hindu Almanac (Panchang - Mumbai)
+🕉 HINDU ALMANAC (PANCHANG)
 • Vara (Day): Saturday
 • Tithi: Chaturthi (Krishna)
 • Nakshatra: Dhanishta
-• Yoga: Priti
-• Karana: Bava
-• Sun Times: Sunrise: 6:05 AM | Sunset: 7:20 PM
-• Rahu Kalam: 7:45 AM – 9:24 AM
-• Abhijit Muhurta: 12:19 PM – 1:07 PM
+• Yoga / Karana: Priti / Bava
 
-🇮🇳 Major Events in Indian History
-• [1947] The "Indian Independence Bill" is presented before the British House of Commons...
+🌅 SUN TIMINGS
+• Sunrise: 6:05 AM | Sunset: 7:20 PM
 
-🎂 Notable Birth Anniversaries (India)
-• [1898] Gulzarilal Nanda, Indian politician (died 1998)
-• [1897] Alluri Sitarama Raju, Indian activist (died 1924)
+⏱ DAILY MUHURTAS
+• 🟢 Abhijit Muhurta: 12:19 PM – 1:07 PM
+• 🔴 Rahu Kalam: 7:45 AM – 9:24 AM
 
-🕯 Notable Remembrance Days (India)
-• [1902] Swami Vivekananda, Indian monk and saint (born 1863)
-• [1963] Pingali Venkayya, Indian activist, designed the Flag of India (born 1876)
+━━━━━━━━━━━━━━━━━━━━
 
-🎉 Indian Festivals & Holidays
+🏛 HISTORICAL EVENTS
+• 1947 — The "Indian Independence Bill" is presented before the British House of Commons...
+
+🎂 BIRTH ANNIVERSARIES
+• 1898 — Gulzarilal Nanda, Indian politician (died 1998)
+• 1897 — Alluri Sitarama Raju, Indian activist (died 1924)
+
+🕯 REMEMBRANCE DAYS
+• 1902 — Swami Vivekananda, Indian monk and saint (born 1863)
+• 1963 — Pingali Venkayya, Indian activist, designed the Flag of India (born 1876)
+
+🎉 FESTIVALS & HOLIDAYS
 • The first evening of Dree Festival... (Apatani people, Arunachal Pradesh, India)
+
+━━━━━━━━━━━━━━━━━━━━
+✨ Have a blessed and wonderful day ahead!
 ```
 
 ---
