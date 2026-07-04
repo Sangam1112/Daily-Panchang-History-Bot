@@ -92,12 +92,13 @@ To test the script locally:
    ```bash
    export TELEGRAM_BOT_TOKEN="your_bot_token"
    export TELEGRAM_CHAT_ID="your_chat_id"
+   export CITY="mumbai" # Optional: defaults to "delhi"
    ```
 4. Execute the python script:
    ```bash
    python main.py
    ```
-   *If environment variables are missing, the script will output the compiled message directly to the console instead of sending it to Telegram.*
+   *If environment variables are missing, the script will output the compiled message directly to the console instead of sending it to Telegram. Supported city slugs for the `CITY` environment variable include: `mumbai`, `delhi`, `bangalore`, `chennai`, `kolkata`, `hyderabad`, `pune`, `ahmedabad`, `jaipur`, `newyork`, `london`, `singapore`, `dubai`.*
 
 ## License
 
