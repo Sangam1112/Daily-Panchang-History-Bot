@@ -223,7 +223,6 @@ def format_wikipedia_section(wiki_data, bharat_event=None):
     # 4. Holidays & Festivals
     holidays = wiki_data.get('holidays', [])
     indian_holidays = []
-    global_holidays = []
     
     # Prepend calendar-bharat festival if present
     if bharat_event:
@@ -238,16 +237,10 @@ def format_wikipedia_section(wiki_data, bharat_event=None):
         text = h.get('text', '')
         if is_indian_context(text):
             indian_holidays.append(f"• {html.escape(text, quote=False)}")
-        else:
-            global_holidays.append(f"• {html.escape(text, quote=False)}")
             
     if indian_holidays:
         sections_text += "🎉 <b>Indian Festivals & Holidays</b>\n"
         sections_text += "\n".join(indian_holidays[:5]) + "\n\n"
-        
-    if global_holidays:
-        sections_text += "🌍 <b>Global Holidays & Observances</b>\n"
-        sections_text += "\n".join(global_holidays[:5]) + "\n\n"
 
     return sections_text
 
