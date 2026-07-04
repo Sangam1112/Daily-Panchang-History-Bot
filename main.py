@@ -181,15 +181,16 @@ def format_panchang(panchang_data):
     abhijit = muhurta.get('abhijit_muhurtam', 'N/A')
 
     text = (
-        f"🕉 <b>Hindu Almanac (Panchang - {html.escape(city, quote=False)})</b>\n"
-        f"• <b>Vara (Day):</b> {html.escape(vara, quote=False)}\n"
-        f"• <b>Tithi:</b> {html.escape(tithi, quote=False)}\n"
-        f"• <b>Nakshatra:</b> {html.escape(nakshatra, quote=False)}\n"
-        f"• <b>Yoga:</b> {html.escape(yoga, quote=False)}\n"
-        f"• <b>Karana:</b> {html.escape(karana, quote=False)}\n"
-        f"• <b>Sun Times:</b> Sunrise: {html.escape(sunrise, quote=False)} | Sunset: {html.escape(sunset, quote=False)}\n"
-        f"• <b>Rahu Kalam:</b> {html.escape(rahu_kalam, quote=False)}\n"
-        f"• <b>Abhijit Muhurta:</b> {html.escape(abhijit, quote=False)}\n\n"
+        f"🕉 <b>HINDU ALMANAC (PANCHANG)</b>\n"
+        f"• <b>Vara (Day):</b> <code>{html.escape(vara, quote=False)}</code>\n"
+        f"• <b>Tithi:</b> <code>{html.escape(tithi, quote=False)}</code>\n"
+        f"• <b>Nakshatra:</b> <code>{html.escape(nakshatra, quote=False)}</code>\n"
+        f"• <b>Yoga / Karana:</b> <code>{html.escape(yoga, quote=False)}</code> / <code>{html.escape(karana, quote=False)}</code>\n\n"
+        f"🌅 <b>SUN TIMINGS</b>\n"
+        f"• <b>Sunrise:</b> <code>{html.escape(sunrise, quote=False)}</code> | <b>Sunset:</b> <code>{html.escape(sunset, quote=False)}</code>\n\n"
+        f"⏱ <b>DAILY MUHURTAS</b>\n"
+        f"• 🟢 <b>Abhijit Muhurta:</b> <code>{html.escape(abhijit, quote=False)}</code>\n"
+        f"• 🔴 <b>Rahu Kalam:</b> <code>{html.escape(rahu_kalam, quote=False)}</code>\n\n"
     )
     return text
 
@@ -211,11 +212,11 @@ def format_wikipedia_section(wiki_data, bharat_event=None):
         if text not in seen_events and is_indian_context(text):
             seen_events.add(text)
             year = e.get('year', '')
-            year_prefix = f"<b>[{year}]</b> " if year else ""
+            year_prefix = f"<code>{year}</code> — " if year else ""
             indian_events.append(f"• {year_prefix}{html.escape(text, quote=False)}")
     
     if indian_events:
-        sections_text += "🇮🇳 <b>Major Events in Indian History</b>\n"
+        sections_text += "🏛 <b>HISTORICAL EVENTS</b>\n"
         sections_text += "\n".join(indian_events[:7]) + "\n\n"  # limit to top 7
     
     # 2. Notable births (India)
@@ -225,11 +226,11 @@ def format_wikipedia_section(wiki_data, bharat_event=None):
         text = b.get('text', '')
         if is_indian_context(text):
             year = b.get('year', '')
-            year_prefix = f"<b>[{year}]</b> " if year else ""
+            year_prefix = f"<code>{year}</code> — " if year else ""
             indian_births.append(f"• {year_prefix}{html.escape(text, quote=False)}")
             
     if indian_births:
-        sections_text += "🎂 <b>Notable Birth Anniversaries (India)</b>\n"
+        sections_text += "🎂 <b>BIRTH ANNIVERSARIES</b>\n"
         sections_text += "\n".join(indian_births[:5]) + "\n\n"  # limit to top 5
 
     # 3. Notable deaths (India)
@@ -239,11 +240,11 @@ def format_wikipedia_section(wiki_data, bharat_event=None):
         text = d.get('text', '')
         if is_indian_context(text):
             year = d.get('year', '')
-            year_prefix = f"<b>[{year}]</b> " if year else ""
+            year_prefix = f"<code>{year}</code> — " if year else ""
             indian_deaths.append(f"• {year_prefix}{html.escape(text, quote=False)}")
             
     if indian_deaths:
-        sections_text += "🕯 <b>Notable Remembrance Days (India)</b>\n"
+        sections_text += "🕯 <b>REMEMBRANCE DAYS</b>\n"
         sections_text += "\n".join(indian_deaths[:5]) + "\n\n"  # limit to top 5
 
     # 4. Holidays & Festivals
@@ -265,7 +266,7 @@ def format_wikipedia_section(wiki_data, bharat_event=None):
             indian_holidays.append(f"• {html.escape(text, quote=False)}")
             
     if indian_holidays:
-        sections_text += "🎉 <b>Indian Festivals & Holidays</b>\n"
+        sections_text += "🎉 <b>FESTIVALS & HOLIDAYS</b>\n"
         sections_text += "\n".join(indian_holidays[:5]) + "\n\n"
 
     return sections_text
@@ -345,12 +346,22 @@ def main():
     bharat_event = fetch_bharat_festival(now_ist)
 
     # 3. Format message
-    header = f"📅 <b>DAILY UPDATE: {readable_date}</b>\n\n"
+    city_upper = city.upper()
+    header = (
+        f"🗓 <b>DAILY UPDATE • {city_upper}</b>\n"
+        f"<i>{readable_date}</i>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+    )
     panchang_text = format_panchang(panchang_data)
-    wiki_text = format_wikipedia_section(wiki_data, bharat_event=bharat_event)
-    footer = "✨ <i>Have a wonderful day ahead!</i>"
     
-    full_message = f"{header}{panchang_text}{wiki_text}{footer}"
+    # Prepend a divider before wiki_text if panchang_text successfully fetched data
+    divider = "━━━━━━━━━━━━━━━━━━━━\n\n" if panchang_data else ""
+    wiki_text = format_wikipedia_section(wiki_data, bharat_event=bharat_event)
+    
+    footer_divider = "━━━━━━━━━━━━━━━━━━━━\n"
+    footer = f"{footer_divider}✨ <i>Have a blessed and wonderful day ahead!</i>"
+    
+    full_message = f"{header}{panchang_text}{divider}{wiki_text}{footer}"
     
     # 4. Handle Telegram delivery
     telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
