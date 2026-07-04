@@ -6,7 +6,6 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 
 - **Hindu Almanac (Panchang)**: Retrieves daily Vara (day), Tithi, Nakshatra, Yoga, Karana, Sun timings (Sunrise & Sunset), Rahu Kalam, and Abhijit Muhurta computed for Mumbai, India. Uses the free public API of [Nitya Panchangam](https://nityapanchangam.com/api/).
 - **Major Events (Indian Context)**: Fetches historical events, notable birth/death anniversaries, and festivals/holidays from Wikipedia's "On This Day" feed API, filtered dynamically using regular expressions for Indian history, personalities, and cultural terms.
-- **Global Holidays**: Lists major international days, festivals, and global observances for the day.
 - **Telegram Pushes**: Sends a clean HTML-formatted message to a specified Telegram channel, group, or direct chat using a Telegram Bot.
 - **Automated Scheduling**: Scheduled to run daily at **08:47 AM IST** (03:17 AM UTC) using GitHub Actions.
 
@@ -40,10 +39,6 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 
 🎉 Indian Festivals & Holidays
 • The first evening of Dree Festival... (Apatani people, Arunachal Pradesh, India)
-
-🌍 Global Holidays & Observances
-• Independence Day (United States)
-...
 ```
 
 ---
