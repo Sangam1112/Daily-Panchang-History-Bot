@@ -78,9 +78,12 @@ def fetch_panchang(date_str, city="mumbai"):
     """
     url = "https://nityapanchangam.com/api/panchangam.php"
     params = {"date": date_str, "city": city}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     try:
         logger.info(f"Fetching Panchang for {date_str} in {city}...")
-        response = requests.get(url, params=params, timeout=15)
+        response = requests.get(url, params=params, headers=headers, timeout=15)
         response.raise_for_status()
         return response.json()
     except Exception as e:
