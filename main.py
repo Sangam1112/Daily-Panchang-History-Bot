@@ -113,6 +113,59 @@ def fetch_panchang(date_str, city="mumbai"):
         logger.error(f"Error fetching Panchang: {e}")
         return None
 
+def fetch_weather(city="mumbai"):
+    """
+    Fetches daily weather forecast and current condition for the specified city from wttr.in.
+    """
+    url = f"https://wttr.in/{city}?format=j1"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        logger.info(f"Fetching Weather for {city}...")
+        response = http_session.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        
+        curr = data.get("current_condition", [{}])[0]
+        forecast = data.get("weather", [{}])[0]
+        
+        temp = curr.get("temp_C", "N/A")
+        feels = curr.get("FeelsLikeC", "N/A")
+        humidity = curr.get("humidity", "N/A")
+        desc = curr.get("weatherDesc", [{}])[0].get("value", "N/A")
+        wind_speed = curr.get("windspeedKmph", "N/A")
+        wind_dir = curr.get("winddir16Point", "N/A")
+        
+        min_temp = forecast.get("mintempC", "N/A")
+        max_temp = forecast.get("maxtempC", "N/A")
+        
+        # Match weather descriptions to emojis
+        emoji = "☀️"
+        desc_lower = desc.lower()
+        if "rain" in desc_lower or "drizzle" in desc_lower or "shower" in desc_lower:
+            emoji = "🌧️"
+        elif "thunder" in desc_lower:
+            emoji = "⛈️"
+        elif "snow" in desc_lower or "ice" in desc_lower:
+            emoji = "❄️"
+        elif "cloud" in desc_lower or "overcast" in desc_lower:
+            emoji = "☁️"
+        elif "mist" in desc_lower or "fog" in desc_lower or "haze" in desc_lower:
+            emoji = "🌫️"
+            
+        weather_text = (
+            f"🌡️ <b>WEATHER FORECAST ({city.upper()})</b>\n"
+            f"• <b>Condition:</b> {emoji} <code>{html.escape(desc, quote=False)}</code>\n"
+            f"• <b>Temperature:</b> <code>{temp}°C</code> (Feels like <code>{feels}°C</code>)\n"
+            f"• <b>Today's Range:</b> Min <code>{min_temp}°C</code> | Max <code>{max_temp}°C</code>\n"
+            f"• <b>Humidity / Wind:</b> <code>{humidity}%</code> / <code>{wind_speed} km/h {wind_dir}</code>\n\n"
+        )
+        return weather_text
+    except Exception as e:
+        logger.error(f"Error fetching weather: {e}")
+        return "⚠️ <i>Weather forecast could not be retrieved today.</i>\n\n"
+
 def fetch_wikipedia_events(month, day):
     """
     Fetches all historical events, births, deaths, and holidays from Wikipedia for a given month and day.
@@ -344,6 +397,7 @@ def main():
     panchang_data = fetch_panchang(date_str, city=city)
     wiki_data = fetch_wikipedia_events(month_str, day_str)
     bharat_event = fetch_bharat_festival(now_ist)
+    weather_text = fetch_weather(city)
 
     # 3. Format message
     city_upper = city.upper()
@@ -354,14 +408,15 @@ def main():
     )
     panchang_text = format_panchang(panchang_data)
     
-    # Prepend a divider before wiki_text if panchang_text successfully fetched data
-    divider = "━━━━━━━━━━━━━━━━━━━━\n\n" if panchang_data else ""
+    # Prepend a divider before wiki_text if live data was successfully fetched
+    has_live_data = bool(panchang_data) or not weather_text.startswith("⚠️")
+    divider = "━━━━━━━━━━━━━━━━━━━━\n\n" if has_live_data else ""
     wiki_text = format_wikipedia_section(wiki_data, bharat_event=bharat_event)
     
     footer_divider = "━━━━━━━━━━━━━━━━━━━━\n"
     footer = f"{footer_divider}✨ <i>Have a blessed and wonderful day ahead!</i>"
     
-    full_message = f"{header}{panchang_text}{divider}{wiki_text}{footer}"
+    full_message = f"{header}{panchang_text}{weather_text}{divider}{wiki_text}{footer}"
     
     # 4. Handle Telegram delivery
     telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
