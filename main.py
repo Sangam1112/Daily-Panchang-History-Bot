@@ -686,7 +686,7 @@ def main():
 
     # 2. Check current hour in IST to determine run mode (Send vs Delete)
     # Deletion triggers in the evening (9:00 PM IST is hour 21)
-    if now_ist.hour >= 18:
+    if now_ist.hour >= 21:
         logger.info("Evening run detected. Executing message deletion sequence...")
         telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
         telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")

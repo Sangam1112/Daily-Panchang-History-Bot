@@ -12,7 +12,7 @@ A automated Python script designed to run daily on GitHub Actions to fetch today
 - **Daily Infographic Card**: Generates a beautiful 800x1360 dashboard image card (`daily_card.png`) containing the Almanac, Historical Events, Births, and Holidays. Pushes it directly to Telegram with a clean header caption (removing text duplication entirely).
 - **GPS Coordinates Override**: Optionally reads `LAT` and `LNG` environment variables to compute calculations dynamically for any coordinate worldwide instead of just static city lists.
 - **CI/CD Verification**: Includes a unit test suite (`test_main.py`) running automatically on GitHub Actions on every push to verify filters and layout components.
-- **Automated Scheduling**: Scheduled to run daily at **08:47 AM IST** (03:17 AM UTC) using GitHub Actions.
+- **Automated Scheduling**: Scheduled to run daily at **08:46 AM IST** (03:16 AM UTC) using GitHub Actions.
 - **Automated Message Deletion**: Automatically deletes the daily sent update from all users' Telegram app/handsets at **09:00 PM IST** (15:30 UTC) daily via a serverless GitHub Actions persistence cycle.
 
 ---
@@ -84,7 +84,7 @@ July 04, 2026 (Saturday)
 
 ### 3. Workflow Details
 The GitHub Actions workflow is defined in `.github/workflows/daily_update.yml`.
-It is configured with a cron expression to execute at **03:17 UTC**, which maps exactly to **08:47 AM IST** (UTC + 5:30).
+It is configured with a cron expression to execute at **03:16 UTC**, which maps exactly to **08:46 AM IST** (UTC + 5:30).
 > [!NOTE]
 > GitHub Actions schedules can sometimes be delayed by 10-30 minutes based on GitHub's internal job queues. To run the bot manually at any time, you can trigger it via the **Actions** tab on GitHub by clicking **Run workflow**.
 
