@@ -2,9 +2,9 @@ name: Daily Today Special Bot
 
 on:
   schedule:
-    # 08:46 AM IST is 03:16 AM UTC (IST = UTC + 5:30)
-    - cron: '16 3 * * *'
-    # 09:00 PM IST is 09:00 PM IST (15:30 UTC)
+    # 08:28 AM IST is 02:58 AM UTC (IST = UTC + 5:30)
+    - cron: '58 2 * * *'
+    # 09:00 PM IST (15:30 UTC) for deletion cycle
     - cron: '30 15 * * *'
   workflow_dispatch: # Allows manual trigger from the Actions tab
 
