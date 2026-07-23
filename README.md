@@ -1,23 +1,25 @@
-# Today Special Bot 📅🕉🇮🇳
+# Today Event Bot 📅🕉🇮🇳
 
-A automated Python script designed to run daily on GitHub Actions to fetch today's special information (Hindu Almanac/Panchang & Indian Historical Events) and send a beautifully formatted digest to a Telegram chat.
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-Automated-orange.svg)
 
-## Features
-
-- **Hindu Almanac (Panchang)**: Retrieves daily Vara (day), Tithi, Nakshatra, Yoga, Karana, Sun timings (Sunrise & Sunset), Rahu Kalam, and Abhijit Muhurta computed for Mumbai, India. Uses the free public API of [Nitya Panchangam](https://nityapanchangam.com/api/).
-- **Major Events (Indian Context)**: Fetches historical events, notable birth/death anniversaries, and festivals/holidays from Wikipedia's "On This Day" feed API, filtered dynamically using regular expressions for Indian history, personalities, and cultural terms.
-- **Telegram Pushes**: Sends a clean HTML-formatted message to a specified Telegram channel, group, or direct chat using a Telegram Bot.
-- **Resilient Requests**: Configured with automatic session retries and exponential backoff to handle temporary network glitches or API rate-limiting (HTTP 429, 5xx).
-- **Message Split Guard**: Automatically partitions the message at natural paragraph boundaries if the generated digest exceeds Telegram's 4,096-character API limit.
-- **Daily Infographic Card**: Generates a beautiful 800x1360 dashboard image card (`daily_card.png`) containing the Almanac, Historical Events, Births, and Holidays. Pushes it directly to Telegram with a clean header caption (removing text duplication entirely).
-- **GPS Coordinates Override**: Optionally reads `LAT` and `LNG` environment variables to compute calculations dynamically for any coordinate worldwide instead of just static city lists.
-- **CI/CD Verification**: Includes a unit test suite (`test_main.py`) running automatically on GitHub Actions on every push to verify filters and layout components.
-- **Automated Scheduling**: Scheduled to run daily at **08:46 AM IST** (03:16 AM UTC) using GitHub Actions.
-- **Automated Message Deletion**: Automatically deletes the daily sent update from all users' Telegram app/handsets at **09:00 PM IST** (15:30 UTC) daily via a serverless GitHub Actions persistence cycle.
+An automated Python system designed to run daily via **GitHub Actions** to fetch today's special information—including the **Hindu Almanac (Panchang)** & **Indian Historical Events**—and send a beautifully formatted digest + infographic card to your **Telegram** chat.
 
 ---
 
-## Output Preview
+## 🌟 Features
+
+- 🕉 **Hindu Almanac (Panchang)**: Daily Vara (day), Tithi, Nakshatra, Yoga, Karana, Sunrise & Sunset, Rahu Kalam, and Abhijit Muhurta computed for Mumbai, India (or custom coordinates).
+- 🏛 **Indian Historical Events**: Fetches historical events, birth/death anniversaries, and Indian festivals/holidays from Wikipedia's "On This Day" feed API.
+- 🖼 **Daily Infographic Dashboard**: Automatically generates a high-resolution dashboard card (`daily_card.png`) containing Panchang details and historical events, pushed directly to Telegram.
+- 📲 **Telegram Integration**: Delivers clean HTML digests and image cards directly to your Telegram channel or group.
+- ⏰ **Automated Deletion**: Cleans up previous daily updates from Telegram at **09:00 PM IST** daily via serverless GitHub Actions cycle.
+- 🛡 **Resilient Architecture**: Built-in exponential backoff, request retries, and automatic message split guard (for Telegram's 4,096-character API limit).
+
+---
+
+## 📋 Sample Digest Preview
 
 ```html
 🗓 DAILY UPDATE • MUMBAI
@@ -48,71 +50,41 @@ July 04, 2026 (Saturday)
 
 🕯 REMEMBRANCE DAYS
 • 1902 — Swami Vivekananda, Indian monk and saint (born 1863)
-• 1963 — Pingali Venkayya, Indian activist, designed the Flag of India (born 1876)
 
 🎉 FESTIVALS & HOLIDAYS
-• The first evening of Dree Festival... (Apatani people, Arunachal Pradesh, India)
-
-━━━━━━━━━━━━━━━━━━━━
-✨ Have a blessed and wonderful day ahead!
+• Dree Festival (Apatani people, Arunachal Pradesh, India)
 ```
 
 ---
 
-## Setup & Deployment
+## 🚀 Setup & Deployment
 
 ### 1. Telegram Bot Setup
 1. Open Telegram and search for [@BotFather](https://t.me/BotFather).
-2. Create a new bot by sending `/newbot` and follow the instructions to get your **HTTP API Token** (`TELEGRAM_BOT_TOKEN`).
-3. Create a Telegram channel, group, or simply use your own direct chat.
-4. Add the bot to your channel or group as an Administrator with send message permissions.
-5. Get your chat/channel ID (`TELEGRAM_CHAT_ID`):
-   - For a direct chat with your bot, search for `@userinfobot` or `@GetIDsBot` and send a message. It will reply with your ID.
-   - For a channel or group, forward a message from the group/channel to `@GetIDsBot`. The channel ID usually starts with `-100`.
+2. Create a new bot (`/newbot`) and copy your **HTTP API Token** (`TELEGRAM_BOT_TOKEN`).
+3. Add the bot to your channel/group as an Administrator.
+4. Get your `TELEGRAM_CHAT_ID` using [@GetIDsBot](https://t.me/GetIDsBot).
 
 ### 2. GitHub Configuration
-1. Push this project folder to a new repository on GitHub.
-2. Navigate to your repository page.
-3. Go to **Settings** > **Secrets and variables** > **Actions**.
-4. Click **New repository secret** and add the following:
-   - **Name**: `TELEGRAM_BOT_TOKEN`
-   - **Value**: *Your Telegram Bot API Token*
-5. Add another secret:
-   - **Name**: `TELEGRAM_CHAT_ID`
-   - **Value**: *Your Telegram Chat/Channel ID*
-6. Make sure GitHub Actions are enabled under **Settings** > **Actions** > **General** > **Actions permissions** > Select "Allow all actions and reusable workflows".
-
-### 3. Workflow Details
-The GitHub Actions workflow is defined in `.github/workflows/daily_update.yml`.
-It is configured with a cron expression to execute at **03:16 UTC**, which maps exactly to **08:46 AM IST** (UTC + 5:30).
-> [!NOTE]
-> GitHub Actions schedules can sometimes be delayed by 10-30 minutes based on GitHub's internal job queues. To run the bot manually at any time, you can trigger it via the **Actions** tab on GitHub by clicking **Run workflow**.
+In your repository (`Settings` -> `Secrets and variables` -> `Actions`), add:
+- `TELEGRAM_BOT_TOKEN`: *Your Telegram Bot API Token*
+- `TELEGRAM_CHAT_ID`: *Your Telegram Chat / Channel ID*
 
 ---
 
-## Running Locally
+## 💻 Local Testing
 
-To test the script locally:
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-1. Clone this project repository.
-2. Install the requirements:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Set your environment variables (optional for local logs, required for actual Telegram message sending):
-   ```bash
-   export TELEGRAM_BOT_TOKEN="your_bot_token"
-   export TELEGRAM_CHAT_ID="your_chat_id"
-   export CITY="delhi" # Optional: defaults to "mumbai"
-   ```
-4. Execute the python script:
-   ```bash
-   python main.py
-   ```
-   *If environment variables are missing, the script will output the compiled message directly to the console instead of sending it to Telegram. Supported city slugs for the `CITY` environment variable include: `mumbai`, `delhi`, `bangalore`, `chennai`, `kolkata`, `hyderabad`, `pune`, `ahmedabad`, `jaipur`, `newyork`, `london`, `singapore`, `dubai`.*
+# Run main script locally
+python main.py
+```
 
-## License
+---
 
-This project utilizes:
-- [Nitya Panchangam Free API](https://nityapanchangam.com/api/) (Attribution under CC-BY 4.0 license is required).
+## 📄 License
+This project utilizes data from:
+- [Nitya Panchangam API](https://nityapanchangam.com/api/) (CC-BY 4.0).
 - Wikipedia On This Day API.
