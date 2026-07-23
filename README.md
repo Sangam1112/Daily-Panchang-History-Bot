@@ -88,3 +88,7 @@ python main.py
 This project utilizes data from:
 - [Nitya Panchangam API](https://nityapanchangam.com/api/) (CC-BY 4.0).
 - Wikipedia On This Day API.
+
+
+## ⏰ Automated Schedule
+Scheduled to run daily at **08:28 AM IST** (02:58 AM UTC) via GitHub Actions.
